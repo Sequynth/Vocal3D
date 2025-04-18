@@ -27,6 +27,7 @@ import SiliconeSurfaceReconstruction
 import surface_reconstruction
 import torch
 import Triangulation
+import visualization
 import VoronoiRHC
 from GraphWidget import GraphWidget
 from ImageViewerWidget import ImageViewerWidget
@@ -245,12 +246,24 @@ class Viewer(QWidget):
         for feature_image in feature_images:
             self.segmentations.append(feature_image.permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8))
 
-        
+
         self.graph_widget.updateGraph(
             self._reconstruction_pipeline._feature_estimator.glottalAreaWaveform().tolist(), self.graph_widget.glottal_seg_graph
         )
 
+
+
+        gs_qimages = [helper.np_2_QImage((visualization.segmentation_to_color_mask(gs, (255, 0, 0), 255)).detach().cpu().numpy().astype(np.uint8)) for gs in glottis_segmentations]
+        vf_qimages = [helper.np_2_QImage((visualization.segmentation_to_color_mask(vf, (0, 255, 0), 255)).detach().cpu().numpy().astype(np.uint8)) for vf in vocalfold_segmentations]
         self.image_widget.point_viewer.add_points(point_positions.detach().cpu().numpy())
+        self.image_widget.point_viewer.add_vocalfold_segmentations(vf_qimages)
+        self.image_widget.point_viewer.add_glottal_segmentations(gs_qimages)
+        self.image_widget.point_viewer.add_glottal_midlines(glottal_midlines)
+        self.image_widget.point_viewer.add_glottal_outlines(glottal_outlines)
+        
+
+
+        
         self.update_images_func()
         
 

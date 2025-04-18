@@ -1,20 +1,19 @@
-import numpy as np
-import cv2
 import math
+from collections import OrderedDict
 
+import cv2
+import helper
+import main
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+import Objects
+import torch
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-
 from matplotlib.patches import FancyArrowPatch
-from mpl_toolkits.mplot3d import proj3d
-
+from mpl_toolkits.mplot3d import Axes3D, proj3d
 from sklearn.neighbors import NearestNeighbors
-import main
-import Objects
-import helper
-from collections import OrderedDict
+
 
 def visualizeWorld(rays, camera, minDistPlane, maxDistPlane, imageWidth, imageHeight):
     fig = plt.figure(figsize=(10, 10))
@@ -419,10 +418,6 @@ def generateProjectionImage(camera, laser, plane, imageHeight, imageWidth):
 
     return image
 
-
-
-    
-
 def generateEPCLineImage(camera, laser, minDistance, maxDistance, imageHeight, imageWidth): 
 
     minPlane = Objects.Plane(np.array([[0.0, 0.0, 1.0]]), np.array([[0.0, 0.0, minDistance]]))
@@ -445,3 +440,35 @@ def generateEPCLineImage(camera, laser, minDistance, maxDistance, imageHeight, i
     image = ((image / image.max()) * 255).astype(np.uint8)
 
     return image
+
+
+
+def segmentation_to_color_mask(segmentation: torch.Tensor, color=(255, 0, 0), alpha=255):
+    """
+    Converts a 2D PyTorch tensor with values in [0, 1] to a colored RGBA image.
+
+    Parameters:
+        segmentation (torch.Tensor): 2D tensor with float values in [0, 1]
+        color (tuple): RGB color as (R, G, B)
+        alpha (int): Alpha value (0–255)
+
+    Returns:
+        torch.Tensor: 3D uint8 tensor with shape (H, W, 4)
+    """
+    assert segmentation.ndim == 2, "Segmentation must be a 2D tensor"
+    assert torch.min(segmentation) >= 0 and torch.max(segmentation) <= 1, "Values must be in [0, 1]"
+
+    h, w = segmentation.shape
+    rgba = torch.zeros((h, w, 4), dtype=torch.uint8)
+
+    # Apply color channels
+    for i in range(3):  # R, G, B
+        rgba[..., i] = (segmentation * color[i]).byte()
+
+    rgba[..., 3] = (segmentation * alpha).byte()  # Alpha channel
+
+    rgba[segmentation == 0][3] = 0
+
+    return rgba
+
+    

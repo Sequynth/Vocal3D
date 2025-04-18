@@ -1,9 +1,10 @@
 import cv2
-from cropAndSubpixelPoints import PointViewer
+from opacityWidget import OpacityWidget
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from QLines import QVLine
+from zoomableFeatures import FeatureViewer
 
 
 class ImageViewerWidget(QWidget):
@@ -12,13 +13,21 @@ class ImageViewerWidget(QWidget):
         self.base_layout = QHBoxLayout(self)
         
         self.imageDICT = {}
-        self.point_viewer = PointViewer(None, None)
+        self.features = ["GS", "VS", "GM", "GO", "P"]
+        self.point_viewer = FeatureViewer(None, None)
+        self.point_viewer.setMinimumSize(256, 512)
+        self.point_viewer.fit_view()
+        self.opacity_widget = OpacityWidget(self.features)
 
-        self.addImageWidget("Main", (256, 512))
-        self.base_layout.addWidget(QVLine())
-        self.addImageWidget("Segmentation", (256, 512))
-        self.base_layout.addWidget(QVLine())
         self.base_layout.addWidget(self.point_viewer)
+        self.base_layout.addWidget(QVLine())
+        self.base_layout.addWidget(self.opacity_widget, alignment = Qt.AlignmentFlag.AlignBottom)
+
+        for feature in self.features:
+            self.opacity_widget.widget_features[feature]["checkbox"].stateChanged.connect(self.point_viewer.feature_dicts[feature]["show"])
+            self.opacity_widget.widget_features[feature]["slider"].valueChanged.connect(self.point_viewer.feature_dicts[feature]["opacity"])
+            self.opacity_widget.widget_features[feature]["checkbox"].stateChanged.connect(self.point_viewer.redraw)
+            self.opacity_widget.widget_features[feature]["slider"].valueChanged.connect(self.point_viewer.redraw)
 
     def addImageWidget(self, title, size):
         widg = QWidget(self)
@@ -38,8 +47,8 @@ class ImageViewerWidget(QWidget):
 
     def updateImages(self, a, b, current_frame):
         # We assume images to be in RGB Format
-        self.updateImage(a, self.imageDICT["Main"])
-        self.updateImage(b, self.imageDICT["Segmentation"])
+        #self.updateImage(a, self.imageDICT["Main"])
+        #self.updateImage(b, self.imageDICT["Segmentation"])
         self.point_viewer.change_frame(current_frame)
         self.point_viewer.redraw()
 
