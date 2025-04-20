@@ -1,5 +1,6 @@
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QFileDialog, QHBoxLayout, QPushButton, QWidget
+
 
 class OpenCloseSaveWidget(QWidget):
     fileOpenedSignal = pyqtSignal(str, str, str)
@@ -9,9 +10,10 @@ class OpenCloseSaveWidget(QWidget):
         self.setLayout(QHBoxLayout())
 
         self.addButton("Open", self.open)
-        self.addButton("New Video", self.openVideo)
-        self.addButton("Load", self.open)
-        self.addButton("Save", self.saveProject)
+        self.addButton("New Video", self.loadVideo)
+
+        self.camera_calib_path: str = ""
+        self.laser_calib_path: str = ""
 
     def addButton(self, title, function):
         button = QPushButton(title)
@@ -24,17 +26,6 @@ class OpenCloseSaveWidget(QWidget):
         self.video_path, _ = QFileDialog.getOpenFileName(self, 'Open Video', '', "Video Files (*.avi *.mp4 *.mkv *.AVI *.MP4)")
         self.fileOpenedSignal.emit(self.camera_calib_path, self.laser_calib_path, self.video_path)
 
-    def openVideo(self):
+    def loadVideo(self):
         self.video_path, _ = QFileDialog.getOpenFileName(self, 'Open Video', '', "Video Files (*.avi *.mp4 *.mkv *.AVI *.MP4)")
         self.fileOpenedSignal.emit(self.camera_calib_path, self.laser_calib_path, self.video_path)
-
-    def loadProject(self):
-        project_path = QFileDialog.getOpenFileName(self, 'Open Camera Calibration file', '', "Project Folders (*.json *.mat)")
-
-        # TODO: implement
-        # Load Stuff
-
-    def saveProject(self):
-        # Save a project
-        print("Save a project! And implement me!")
-        pass

@@ -1,4 +1,5 @@
 
+import bruteForceCorrespondence
 import correspondence_estimation
 import Correspondences
 import feature_estimation
@@ -72,29 +73,12 @@ class ReconstructionPipeline:
         self._optimized_point_positions = self._point_tracker.track_points(video, self._feature_estimator)
         return self._optimized_point_positions
 
+
     def estimate_correspondences(self, min_depth: float, max_depth: float, consensus_size: int, iterations: int) -> None:
         maximum_closing_frame = self._feature_estimator.glottalAreaWaveform().argmin()
         point_image = self._feature_estimator.create_image_from_points(self._optimized_point_positions[maximum_closing_frame])
-
-        pixelLocations, laserGridIDs = Correspondences.initialize(
-                    self._laser,
-                    self._camera,
-                    point_image.detach().cpu().numpy(),
-                    min_depth,
-                    max_depth,
-                )
         
-        self.grid2DPixLocations = RHC.RHC(
-            laserGridIDs,
-            pixelLocations,
-            point_image.detach().cpu().numpy(),
-            self._camera,
-            self._laser,
-            consensus_size,
-            iterations,
-        )
-
-
+        self.grid2DPixLocations = self._correspondence_estimator.compute_correspondences(self._camera, self._laser, point_image)
         # Given that we now have a list of laser beam IDS and pixel positions,
         # we now need to find the corresponding points in self._optimized_point_positions
         # as we can not guarantee, that the ordering stayed coherent.

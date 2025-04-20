@@ -1,27 +1,25 @@
 import argparse
 import os
 
+import ARAP
 import cv2
+import helper
+import M5
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
+import Timer
 import torch
 from geomdl import BSpline, utilities
 from geomdl.visualization import VisMPL
+from Laser import Laser
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 from pytorch3d.loss import chamfer_distance
 from scipy.spatial import Delaunay, KDTree
 from torch_nurbs_eval.surf_eval import SurfEval
-
 from tqdm import tqdm
 
-import helper
-import M5
-import Timer
-from Laser import Laser
-
-import ARAP
 
 def rotation_matrix_from_vectors(vec1, vec2):
     """ Find the rotation matrix that aligns vec1 to vec2
@@ -156,7 +154,7 @@ def generateARAPAnchors(vertices, points, nPointsU, glottalOutlinePoints, isLeft
     # Fit glottal out and midline
     if glottalOutlinePoints.size != 0:
         for i in range(nPointsV):
-            for j in range(0, 3):
+            for j in range(3):
                 controlPointIndex = 4 + j + i*nPointsU
                 controlPoint = vertices[controlPointIndex]
 

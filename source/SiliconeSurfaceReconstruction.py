@@ -150,7 +150,7 @@ def getNeighbours(faces, numPoints):
 # Given
 # 3D Points of type NumFrames X NumPoints x 3
 # Calibrated laser object
-def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions=5):
+def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions=5, xSubdivisions=3, r_zero = 1.0, T = 2.5, psi = 0.0, ARAP_iterations=2, ARAP_weight = 10000.0):
     left_M5_list = []
     right_M5_list = []
     left_points_list = []
@@ -182,6 +182,7 @@ def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions
     ARAP_timer = Timer.Timer()
     ARAP_timer.start()
     # We'll first do this for every frame, and later optimize it
+    glottal_outlines_3d = []
     for i in tqdm(range(len(triangulatedPoints))):
         points = triangulatedPoints[i]
         points = points[~np.isnan(points).any(axis=1)]
@@ -277,6 +278,7 @@ def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions
         glottalOutlinePoints[:, 1] = 0.0
 
         # Move vocal folds down a bit
+        alignedPoints[:, 1] = -alignedPoints[:, 1]
         alignedPoints -= np.array([[0.0, alignedPoints[:, 1].min()/2.0, 0.0]])
 
         # Split everything into left and right vocal fold
@@ -296,8 +298,11 @@ def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions
 
             # Generate M5 Model for left and right vocalfold
             absMaxX = max(abs(minX), abs(maxX))
-            M5_Right = np.array(M5.M52D(1.0, 2.5, 0.0, absMaxX, isLeft=False).getVertices())
-            M5_Left = np.array(M5.M52D(1.0, 2.5, 0.0, absMaxX, isLeft=True).getVertices())
+            M5_Right = np.array(M5.M52D(r_zero, T, psi, absMaxX, isLeft=False, subdivisions=xSubdivisions).getVertices())
+            M5_Left = np.array(M5.M52D(r_zero, T, psi, absMaxX, isLeft=True, subdivisions=xSubdivisions).getVertices())
+
+            #M5_Right = np.delete(M5_Right, [4,5,7,8], axis=0)
+            #M5_Left = np.delete(M5_Left, [4,5,7,8], axis=0)
 
             num_2d = M5_Left.shape[0]
 
@@ -331,6 +336,7 @@ def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions
         left_points_list.append(leftPoints)
         right_points_list.append(rightPoints)
         combined_points.append(np.concatenate([leftPoints, rightPoints]))
+        glottal_outlines_3d.append(glottalOutlinePoints)
 
     copied_M5_left = np.expand_dims(np.array(M5_Left), 0).repeat(len(arap_c_left_list), axis=0)
     copied_M5_right = np.expand_dims(np.array(M5_Right), 0).repeat(len(arap_c_left_list), axis=0)
@@ -340,13 +346,13 @@ def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions
     copied_neighbours_left = [neighbours_left for i in range(len(arap_c_left_list))]
     copied_neighbours_right = [neighbours_right for i in range(len(arap_c_left_list))]
 
-    left_M5_list = ARAP.deform_multiple(copied_M5_left.tolist(), copied_faces_left.tolist(), arap_c_left_list, constrained_vertices_list_left, copied_neighbours_left, 2, 10000.0)
-    right_M5_list = ARAP.deform_multiple(copied_M5_right.tolist(), copied_faces_right.tolist(), arap_c_right_list, constrained_vertices_list_right, copied_neighbours_right, 2, 10000.0)
+    left_M5_list = ARAP.deform_multiple(copied_M5_left.tolist(), copied_faces_left.tolist(), arap_c_left_list, constrained_vertices_list_left, copied_neighbours_left, ARAP_iterations, ARAP_weight)
+    right_M5_list = ARAP.deform_multiple(copied_M5_right.tolist(), copied_faces_right.tolist(), arap_c_right_list, constrained_vertices_list_right, copied_neighbours_right, ARAP_iterations, ARAP_weight)
 
     ARAP_timer.stop()
     print("ARAPing {0} Frames takes: {1}s".format(len(triangulatedPoints), ARAP_timer.getAverage()))
 
-    return left_M5_list, right_M5_list, left_points_list, right_points_list, combined_points
+    return left_M5_list, right_M5_list, left_points_list, right_points_list, combined_points, glottal_outlines_3d
 
 
 # Finds the np array with the least amount of points
@@ -376,6 +382,9 @@ def surfaceOptimization(control_points, points, zSubdivisions=10, iterations=10,
     control_points = np.array(control_points)
     control_points = control_points.reshape(control_points.shape[0], zSubdivisions, -1, 3)
 
+    #TODO: This should depend on the number of x subdivisions!
+    control_points_for_eval = control_points[:, :, :4, :]
+
     points = np.array(points)
     minimum = 1000000000000000
     for i in range(points.shape[0]):
@@ -392,7 +401,7 @@ def surfaceOptimization(control_points, points, zSubdivisions=10, iterations=10,
     surface = BSpline.Surface()
     surface.degree_u = 3
     surface.degree_v = 3
-    surface.ctrlpts2d = control_points[0].tolist()
+    surface.ctrlpts2d = control_points_for_eval[0].tolist()
     surface.knotvector_u = utilities.generate_knot_vector(surface.degree_u, surface.ctrlpts_size_u)
     surface.knotvector_v = utilities.generate_knot_vector(surface.degree_v, surface.ctrlpts_size_v)
 
@@ -403,7 +412,7 @@ def surfaceOptimization(control_points, points, zSubdivisions=10, iterations=10,
     timer.start()
 
     # Get Framewise Conrol Points and Target Points
-    frame_ctrl_pnts = control_points
+    frame_ctrl_pnts = control_points_for_eval
     targets = targets.astype(np.float32)
 
     # Preliminaries for actual Optimization
@@ -447,7 +456,10 @@ def surfaceOptimization(control_points, points, zSubdivisions=10, iterations=10,
 
     timer.stop()
     print("Average Loss of {0} Frames: {1}. Took {2} seconds".format(numFrames, avg_loss/(numFrames*iterations), timer.getAverage()))
-    return inp_ctrl_pts.detach().cpu().numpy().squeeze().reshape(inp_ctrl_pts.shape[0], -1, 3)
+
+    opt_controlpoints = inp_ctrl_pts.detach().cpu().numpy().squeeze()
+    control_points[:, :, :4, :] = opt_controlpoints
+    return control_points.reshape(control_points.shape[0], -1, 3)
 
 
 def getCentroid(points):

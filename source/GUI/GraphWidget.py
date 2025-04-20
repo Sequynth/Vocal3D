@@ -1,7 +1,7 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
-import pyqtgraph as pg
 import numpy as np
+import pyqtgraph as pg
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QVBoxLayout, QWidget
 
 pg.setConfigOption('imageAxisOrder', 'row-major')
 
@@ -34,6 +34,9 @@ class GraphWidget(QWidget):
     def updateGraph(self, vals, graph):
         x = np.arange(0, len(vals))
         pen = pg.mkPen(color=(255, 125, 15))
+        item = graph.getPlotItem()
+        if item is not None:
+            graph.removeItem(item)
         graph.plot(x, vals, pen=pen)
 
     def updateGraphs(self, a, b, c):

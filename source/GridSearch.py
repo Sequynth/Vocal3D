@@ -1,5 +1,4 @@
 import numpy as np
-
 from sklearn.neighbors import NearestNeighbors
 
 
@@ -52,8 +51,6 @@ class PointBasedGridSearch:
         if xDelta > 0 or yDelta > 0:
             for i in range(len(self.correspondences)):
                 self.correspondences[i][0] = self.correspondences[i][0] - np.array([xDelta, yDelta], dtype=np.int32)
-
-        print("Found first Grid Estimate")
 
     def findMaxima(self, currentPoint, currentPointIndex, directionVector, indexVector):
         if len(self.maxima) == 0:

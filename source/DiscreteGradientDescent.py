@@ -1,8 +1,9 @@
-import numpy as np
+import Camera
 import cv2
 import helper
 import Laser
-import Camera
+import numpy as np
+
 
 class DiscreteGradientDescent:
     def __init__(self, camera, laser, pixelEstimates, gridEstimates):
@@ -45,6 +46,7 @@ class DiscreteGradientDescent:
             return
 
         error = self.calc_error(directionVector)
+        print(error)
 
         if previousError < error:
             return
@@ -69,13 +71,9 @@ class DiscreteGradientDescent:
             randomIndices = np.random.choice(len(self.pixelEstimates), numSamples, replace=False)
             self.gridSamples = np.array(self.gridEstimates)[randomIndices]
             self.point2DSamples = np.array(self.pixelEstimates)[randomIndices]
-
-            if np.random.randint(low=0, high=6) == 5:
-                self.recurse(np.random.randint(low=-6, high=6, size=2), 100000000000000.0)
-            else:
-                self.recurse(np.array([0.0, 0.0]), 100000000000000.0)
+            self.recurse(np.array([0.0, 0.0]), 100000000000000.0)
             directionVectors.append(self.minimalDirection)
             errors.append(self.minimalError)
-            #print(str(self.minimalError) + ": " + str(self.minimalDirection))
+            print(str(self.minimalError) + ": " + str(self.minimalDirection))
         
         return directionVectors[errors.index(min(errors))]

@@ -32,6 +32,7 @@ import VoronoiRHC
 from GraphWidget import GraphWidget
 from ImageViewerWidget import ImageViewerWidget
 from MainMenuWidget import MainMenuWidget
+from PyIGL_viewer.mesh import GlMeshCoreId, GlMeshInstanceId, GlMeshPrefabId
 from PyIGL_viewer.viewer.viewer_widget import ViewerWidget
 from PyQt5.QtCore import Qt, QThread, QTimer, pyqtSignal
 from PyQt5.QtWidgets import (QFileDialog, QFrame, QGridLayout, QHBoxLayout,
@@ -75,23 +76,29 @@ class Viewer(QWidget):
         self.segmentations = None
         self.laserdots = None
 
-        self.left_vf_triangulated = None
-        self.right_vf_triangulated = None
-
         self.plots_set = False
         self.meshes_set = False
         self.images_set = False
 
-        self.obj_ids = {
-            "LeftVF": None,
-            "RightVF": None,
-            "LeftVFOpt": None,
-            "RightVFOpt": None,
-        }
         self.point_cloud_mesh_core = None
-        self.point_cloud_id = None
+        self.pointcloud_instance_id = None
         self.point_cloud_offsets = []
         self.point_cloud_elements = []
+
+        self.pointclouds_go = None
+        self.pointcloud_go_mesh_core = None
+        self.pointcloud_go_instance_id = None
+        self.pointcloud_go_offsets = []
+        self.pointcloud_go_elements = []
+
+        self.controlpoints = None
+        self.controlpoints_mesh_core = None
+        self.controlpoints_instance_id = None
+        self.controlpoints_offsets = []
+        self.controlpoints_elements = []
+
+        self.left_vf_instance = None
+        self.right_vf_instance = None
 
         self.main_layout = QHBoxLayout(self)
 
@@ -133,8 +140,8 @@ class Viewer(QWidget):
         self.viewer_widget.link_light_to_camera()
 
         self.menu_widget.widget().ocs_widget.fileOpenedSignal.connect(self.loadData)
-        self.menu_widget.widget().button_dict["Segment Images"].clicked.connect(
-            self.segmentImages
+        self.menu_widget.widget().button_dict["Compute Features"].clicked.connect(
+            self.computeFeatures
         )
         self.menu_widget.widget().button_dict["Build Correspondences"].clicked.connect(
             self.buildCorrespondences
@@ -162,6 +169,11 @@ class Viewer(QWidget):
         self.player_widget.slider.valueChanged.connect(self.updatePointCloud)
         self.player_widget.slider.valueChanged.connect(self.update_images_func)
 
+        self.image_widget.opacity_widget.show_vf_checkbox.stateChanged.connect(self.toggleMeshVisibility)
+        self.image_widget.opacity_widget.widget_features["GO"]["checkbox"].stateChanged.connect(self.toggleGoVisibility)
+        self.image_widget.opacity_widget.show_controlpoints.stateChanged.connect(self.toggleControlpointVisibility)
+        self.image_widget.opacity_widget.show_triangulated_points.stateChanged.connect(self.togglePointVisibility)
+
         self.timer_thread.start()
         self.image_timer_thread.start()
 
@@ -174,6 +186,8 @@ class Viewer(QWidget):
             "assets/example_vid.avi",
         )'''
         
+        self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
+        self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
         self.loadData(
             os.path.join(path, "camera_calibration.json"),
             os.path.join(path, "laser_calibration.json"),
@@ -183,12 +197,12 @@ class Viewer(QWidget):
         self._reconstruction_pipeline = reconstruction_pipeline.ReconstructionPipeline(
             self.camera, 
             self.laser, 
-            feature_estimation.SiliconeFeatureEstimator(), 
+            feature_estimation.NeuralFeatureEstimator("cuda"), 
             point_tracking.PointTracker(), 
-            correspondence_estimation.CorrespondenceEstimator(), 
+            correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
             surface_reconstruction.SurfaceReconstructor())
         
-
+        '''
         glottal_outline_images = torch.from_numpy(np.load("load/glottal_outline_images.npy")).cuda()
         glottis_segmentations = torch.from_numpy(np.load("load/glottis_segmentations.npy",)).cuda()
         vocalfold_segmentations = torch.from_numpy(np.load("load/vocalfold_segmentations.npy",)).cuda()
@@ -242,9 +256,9 @@ class Viewer(QWidget):
 
         feature_images = self._reconstruction_pipeline._feature_estimator.create_feature_images()
 
-        self.segmentations = []
-        for feature_image in feature_images:
-            self.segmentations.append(feature_image.permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8))
+        #self.segmentations = []
+        #for feature_image in feature_images:
+        #    self.segmentations.append(feature_image.permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8))
 
 
         self.graph_widget.updateGraph(
@@ -260,6 +274,7 @@ class Viewer(QWidget):
         self.image_widget.point_viewer.add_glottal_segmentations(gs_qimages)
         self.image_widget.point_viewer.add_glottal_midlines(glottal_midlines)
         self.image_widget.point_viewer.add_glottal_outlines(glottal_outlines)
+        '''
         
 
 
@@ -281,14 +296,14 @@ class Viewer(QWidget):
 
         
         min_search_space = float(
-            self.menu_widget.widget().getSubmenuValue("RHC", "Minimum Distance")
+            self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Minimum Distance")
         )
         max_search_space = float(
-            self.menu_widget.widget().getSubmenuValue("RHC", "Maximum Distance")
+            self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Maximum Distance")
         )
-        thresh = float(self.menu_widget.widget().getSubmenuValue("RHC", "GA Thresh"))
-        set_size = int(self.menu_widget.widget().getSubmenuValue("RHC", "Consensus Size"))
-        iterations = int(self.menu_widget.widget().getSubmenuValue("RHC", "Iterations"))
+        thresh = float(self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "GA Thresh"))
+        set_size = int(self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Consensus Size"))
+        iterations = int(self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Iterations"))
         
 
     def gen_timer_thread(self):
@@ -361,9 +376,10 @@ class Viewer(QWidget):
             if curr_frame == self.player_widget.slider.maximum():
                 return
 
+            # Needs refactoring.
             self.image_widget.updateImages(
-                self.images[curr_frame],
-                self.segmentations[curr_frame],
+                None,
+                None,
                 curr_frame
             )
 
@@ -390,11 +406,11 @@ class Viewer(QWidget):
     def updateMesh(self, frameNum):
         if self.meshes_set:
             self.viewer_widget.update_mesh_vertices(
-                self.obj_ids["LeftVF"],
+                self.left_vf_instance,
                 self.pts_left[frameNum].reshape((-1, 3)).astype(np.float32),
             )
             self.viewer_widget.update_mesh_vertices(
-                self.obj_ids["RightVF"],
+                self.right_vf_instance,
                 self.pts_right[frameNum].reshape((-1, 3)).astype(np.float32),
             )
             # self.updatePointCloud(frameNum)
@@ -412,6 +428,20 @@ class Viewer(QWidget):
             self.player_widget.slider.value()
         ]
 
+        self.pointcloud_go_mesh_core.offset = self.pointcloud_go_offsets[
+            self.player_widget.slider.value()
+        ]
+        self.pointcloud_go_mesh_core.number_elements = self.pointcloud_go_elements[
+            self.player_widget.slider.value()
+        ]
+
+        self.controlpoints_mesh_core.offset = self.controlpoints_offsets[
+            self.player_widget.slider.value()
+        ]
+        self.controlpoints_mesh_core.number_elements = self.controlpoints_elements[
+            self.player_widget.slider.value()
+        ]
+
     def addVocalfoldMeshes(self, points_left, points_right, zSubdivisions):
         self.pts_left, self.pts_right, faces_left, faces_right = Mesh.generate_BM5_mesh(
             points_left, points_right, zSubdivisions
@@ -426,11 +456,11 @@ class Viewer(QWidget):
             (-1, 3)
         )
 
-        if self.obj_ids["RightVF"] is not None:
-            self.viewer_widget.remove_mesh(self.obj_ids["RightVF"])
+        if self.right_vf_instance is not None:
+            self.viewer_widget.remove_mesh_(self.right_vf_instance)
 
-        if self.obj_ids["LeftVF"] is not None:
-            self.viewer_widget.remove_mesh(self.obj_ids["LeftVF"])
+        if self.left_vf_instance is not None:
+            self.viewer_widget.remove_mesh_(self.left_vf_instance)
 
         self.graph_widget.updateGraph(
             np.array(points_left)[:, :, 1].max(axis=1),
@@ -458,7 +488,9 @@ class Viewer(QWidget):
                 .max(),
             ]
         )
+        uniforms["albedo"] = np.array([0.8, 0.8, 0.8])
 
+        '''
         vertex_normals_left = igl.per_vertex_normals(
             vertices_left, faces, igl.PER_VERTEX_NORMALS_WEIGHTING_TYPE_AREA
         ).astype(np.float32)
@@ -468,7 +500,35 @@ class Viewer(QWidget):
             vertices_right, faces, igl.PER_VERTEX_NORMALS_WEIGHTING_TYPE_AREA
         ).astype(np.float32)
         vertex_attributes_right["normal"] = vertex_normals_right
+        '''
 
+
+
+        mesh_index = self.viewer_widget.add_mesh(vertices_left, faces_left)
+        mesh_prefab_index = self.viewer_widget.add_mesh_prefab(mesh_index, "colormap", uniforms=uniforms)
+        self.left_vf_instance = self.viewer_widget.add_mesh_instance(
+            mesh_prefab_index, np.eye(4, dtype="f")
+        )
+
+        mesh_index = self.viewer_widget.add_mesh(vertices_right, faces_right)
+        mesh_prefab_index = self.viewer_widget.add_mesh_prefab(mesh_index, "colormap", uniforms=uniforms)
+        self.right_vf_instance = self.viewer_widget.add_mesh_instance(
+            mesh_prefab_index, np.eye(4, dtype="f")
+        )
+
+        
+
+
+        '''
+        left_vf_instance = self.viewer_widget.display_mesh_new(self.pts_left, self.faces_left, vertex_normals_left, vertex_attributes=vertex_attributes_left, uniforms=uniforms)
+        right_vf_instance = self.viewer_widget.display_mesh_new(self.pts_right, self.faces_right, vertex_normals_right, vertex_attributes=vertex_attributes_right, uniforms=uniforms)
+        
+        left_vf_wf_instance = self.viewer_widget.display_wireframe_(self.pts_left, self.faces_left, np.array([0.1, 0.1, 0.1]))
+        right_vf_wf_instance = self.viewer_widget.display_wireframe_(self.pts_right, self.faces_right, np.array([0.1, 0.1, 0.1]))
+        '''
+
+        a = 1
+        '''
         mesh_index_left = self.viewer_widget.add_mesh(vertices_left, faces)
         self.obj_ids["LeftVF"] = self.viewer_widget.add_mesh_prefab(
             mesh_index_left,
@@ -500,6 +560,29 @@ class Viewer(QWidget):
             instance_index_right, line_color=np.array([0.1, 0.1, 0.1])
         )
 
+        self.viewer_widget.set_mesh_instance_visibility_(instance_index_right, False)
+        '''
+
+    def togglePointVisibility(self):
+        visibility = self.viewer_widget.get_mesh_instance_visibility(self.pointcloud_instance_id)
+        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_instance_id, not visibility)
+        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_instance_id, not visibility)
+
+    def toggleControlpointVisibility(self):
+        visibility = self.viewer_widget.get_mesh_instance_visibility(self.controlpoints_instance_id)
+        self.viewer_widget.set_mesh_instance_visibility(self.controlpoints_instance_id, not visibility)
+        self.viewer_widget.set_mesh_instance_visibility(self.controlpoints_instance_id, not visibility)
+
+    def toggleGoVisibility(self):
+        visibility = self.viewer_widget.get_mesh_instance_visibility(self.pointcloud_go_instance_id)
+        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_go_instance_id, not visibility)
+        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_go_instance_id, not visibility)
+
+    def toggleMeshVisibility(self):
+        visibility = self.viewer_widget.get_mesh_instance_visibility(self.left_vf_instance)
+        self.viewer_widget.set_mesh_instance_visibility(self.right_vf_instance, not visibility)
+        self.viewer_widget.set_mesh_instance_visibility(self.left_vf_instance, not visibility)
+
     def toggleVisibility(self, instance_id):
         mesh_instance = self.viewer_widget.get_mesh_instance(instance_id)
         mesh_instance.set_visibility(not mesh_instance.get_visibility())
@@ -529,8 +612,6 @@ class Viewer(QWidget):
         self.images = helper.loadVideo(
             video_path, self.camera.intrinsic(), self.camera.distortionCoefficients()
         )
-        self.segmentations = self.images
-        self.laserdots = self.images
 
         self.image_widget.point_viewer.add_video(helper.vid_2_QImage(self.images))
 
@@ -544,57 +625,67 @@ class Viewer(QWidget):
 
 
 
-    def segmentImages(self):
-        segmentator: feature_estimation.FeatureEstimator = None
+    def computeFeatures(self):
+        feature_estimator: feature_estimation.FeatureEstimator = None
         if self.menu_widget.widget().getSubmenuValue("Segmentation", "Neural Segmentation"):
-            segmentator = feature_estimation.NeuralFeatureEstimator("bla")
+            feature_estimator = feature_estimation.NeuralFeatureEstimator("bla")
         elif self.menu_widget.widget().getSubmenuValue("Segmentation", "Silicone Segmentation"):
-            segmentator = feature_estimation.SiliconeFeatureEstimator()
+            feature_estimator = feature_estimation.SiliconeFeatureEstimator()
         else:
             print("Please choose a Segmentation Algorithm")
 
-        self._reconstruction_pipeline.set_feature_estimator(segmentator)
-        
-        
-        #segmentator.compute_features(self.video)
+        self._reconstruction_pipeline.set_feature_estimator(feature_estimator)
         self._reconstruction_pipeline.estimate_features(self.video)
 
-        segmentations = list()
-        feature_images = segmentator.create_feature_images()
-
-        for feature_image in feature_images:
-            segmentations.append(feature_image.permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8))
-
         self.graph_widget.updateGraph(
-            segmentator.glottalAreaWaveform().tolist(), self.graph_widget.glottal_seg_graph
+            feature_estimator.glottalAreaWaveform().tolist(), self.graph_widget.glottal_seg_graph
         )
 
-        self.segmentations = segmentations
-        self.laserdots = segmentations
+        gs_qimages = [helper.np_2_QImage((visualization.segmentation_to_color_mask(gs, (255, 0, 0), 255)).detach().cpu().numpy().astype(np.uint8)) for gs in feature_estimator.glottisSegmentations()]
+        vf_qimages = [helper.np_2_QImage((visualization.segmentation_to_color_mask(vf, (0, 255, 0), 255)).detach().cpu().numpy().astype(np.uint8)) for vf in feature_estimator.vocalfoldSegmentations()]
+        np_points = [point.detach().cpu().numpy() for point in feature_estimator.laserpointPositions()]
+        self.image_widget.point_viewer.add_points(np_points)
+        self.image_widget.point_viewer.add_vocalfold_segmentations(vf_qimages)
+        self.image_widget.point_viewer.add_glottal_segmentations(gs_qimages)
+        self.image_widget.point_viewer.add_glottal_midlines(feature_estimator.glottalMidlines())
+        self.image_widget.point_viewer.add_glottal_outlines(feature_estimator.glottalOutlines())
+
+        #self.segmentations = segmentations
+        #self.laserdots = segmentations
 
     def trackPoints(self):
         point_positions = self._reconstruction_pipeline.track_points(self.video)
-        self.image_widget.point_viewer.add_points(point_positions.detach().cpu().numpy())
+        self.image_widget.point_viewer.add_optimized_points(point_positions.detach().cpu().numpy())
 
     def buildCorrespondences(self):
         min_search_space = float(
-            self.menu_widget.widget().getSubmenuValue("RHC", "Minimum Distance")
+            self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Minimum Distance")
         )
         max_search_space = float(
-            self.menu_widget.widget().getSubmenuValue("RHC", "Maximum Distance")
+            self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Maximum Distance")
         )
-        thresh = float(self.menu_widget.widget().getSubmenuValue("RHC", "GA Thresh"))
-        set_size = int(self.menu_widget.widget().getSubmenuValue("RHC", "Consensus Size"))
-        iterations = int(self.menu_widget.widget().getSubmenuValue("RHC", "Iterations"))
+        thresh = float(self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "GA Thresh"))
+        set_size = int(self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Consensus Size"))
+        iterations = int(self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Iterations"))
 
+        correspondence_estimator = None
+        if self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "RHC"):
+            correspondence_estimator = correspondence_estimation.RHCEstimator(set_size, iterations, min_search_space, max_search_space)
+        elif self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "BF_RANSAC"):
+            correspondence_estimator = correspondence_estimation.BruteForceEstimator(set_size, iterations, min_search_space, max_search_space)
+        else:
+            print("No suitable correspondence estimator selected.")
+            return
+        
+        self._reconstruction_pipeline.set_correspondence_matcher(correspondence_estimator)
         self._reconstruction_pipeline.estimate_correspondences(min_search_space, max_search_space, set_size, iterations)
 
     def triangulate(self):
         min_search_space = float(
-            self.menu_widget.widget().getSubmenuValue("RHC", "Minimum Distance")
+            self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Minimum Distance")
         )
         max_search_space = float(
-            self.menu_widget.widget().getSubmenuValue("RHC", "Maximum Distance")
+            self.menu_widget.widget().getSubmenuValue("Correspondence Estimation", "Maximum Distance")
         )
         self.points_3d = self._reconstruction_pipeline.triangulation(min_search_space, max_search_space)
 
@@ -602,10 +693,32 @@ class Viewer(QWidget):
         zSubdivisions = int(
             self.menu_widget.widget().getSubmenuValue("Tensor Product M5", "Z Subdivisions")
         )
+        xSubdivisions = int(
+            self.menu_widget.widget().getSubmenuValue("Tensor Product M5", "X Subdivisions")
+        )
+
+        r_zero = float(self.menu_widget.widget().getSubmenuValue("Tensor Product M5", "R_0"))
+        T = float(self.menu_widget.widget().getSubmenuValue("Tensor Product M5", "T"))
+        psi = float(self.menu_widget.widget().getSubmenuValue("Tensor Product M5", "psi"))
+
+        ARAP_iterations = int(self.menu_widget.widget().getSubmenuValue("As-Rigid-As-Possible", "Iterations"))
+        ARAP_weight = float(self.menu_widget.widget().getSubmenuValue("As-Rigid-As-Possible", "Weight"))
         # glottalmidline = self.segmentator.getGlottalMidline(self.images[self.frameOfClosedGlottis])
 
-        if self.point_cloud_id is not None:
-            self.viewer_widget.remove_mesh(self.point_cloud_id)
+        if self.pointcloud_instance_id is not None:
+            self.viewer_widget.remove_mesh_(self.pointcloud_instance_id)
+            self.pointcloud_instance_id = None
+            self.point_cloud_mesh_core = None
+
+        if self.pointcloud_go_instance_id is not None:
+            self.viewer_widget.remove_mesh_(self.pointcloud_go_instance_id)
+            self.pointcloud_go_instance_id = None
+            self.pointcloud_go_mesh_core = None
+
+        if self.controlpoints_instance_id is not None:
+            self.viewer_widget.remove_mesh_(self.controlpoints_instance_id)
+            self.controlpoints_instance_id = None
+            self.controlpoints_mesh_core = None
 
         (
             self.leftDeformed,
@@ -613,11 +726,18 @@ class Viewer(QWidget):
             self.leftPoints,
             self.rightPoints,
             self.pointclouds,
+            self.pointclouds_go
         ) = SiliconeSurfaceReconstruction.controlPointBasedARAP(
             self.points_3d,
             self.camera,
             self._reconstruction_pipeline._feature_estimator,
             zSubdivisions=zSubdivisions,
+            xSubdivisions=xSubdivisions,
+            r_zero=r_zero,
+            T=T,
+            psi=psi,
+            ARAP_iterations=ARAP_iterations,
+            ARAP_weight=ARAP_weight,
         )
 
         self.point_cloud_offsets = [0]
@@ -628,13 +748,128 @@ class Viewer(QWidget):
             self.point_cloud_offsets.append(self.point_cloud_offsets[-1] + num_verts)
             self.point_cloud_elements.append(num_verts)
 
-        # super_point_cloud = np.concatenate(self.pointclouds, axis=0)
-        # self.point_cloud_id = self.viewer_widget.display_point_cloud(super_point_cloud)
-        self.viewer_widget.process_mesh_events()
-        # self.point_cloud_mesh_core = self.viewer_widget.get_mesh(
-        #    self.point_cloud_id
-        # ).mesh_core
+        super_point_cloud = np.concatenate(self.pointclouds, axis=0)
 
+
+
+        vertex_attributes = {}
+        if not "vertexColor" in vertex_attributes:
+            vertex_attributes["vertexColor"] = np.tile(
+                np.array([1.0, 1.0, 0.0], dtype=np.float32), (super_point_cloud.shape[0], 1)
+            )
+        faces = np.linspace(0, super_point_cloud.shape[0], num=super_point_cloud.shape[0], endpoint=False, dtype=np.int32)[:, np.newaxis]
+        core_id = GlMeshCoreId()
+        self.viewer_widget.add_mesh_(core_id, super_point_cloud, faces)
+        prefab_id = GlMeshPrefabId(core_id)
+        self.viewer_widget.add_mesh_prefab_(
+            prefab_id,
+            shader="per_vertex_color",
+            vertex_attributes=vertex_attributes,
+            face_attributes={},
+            uniforms={},
+        )
+        self.pointcloud_instance_id = GlMeshInstanceId(prefab_id)
+        self.viewer_widget.add_mesh_instance_(self.pointcloud_instance_id, np.eye(4))
+        self.point_cloud_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_instance_id).mesh_core
+
+
+
+
+
+        self.pointcloud_go_offsets = [0]
+        self.pointcloud_go_elements = [self.pointclouds_go[0].shape[0]]
+
+        for pc in self.pointclouds_go[1:]:
+            num_verts = pc.shape[0]
+            self.pointcloud_go_offsets.append(self.pointcloud_go_offsets[-1] + num_verts)
+            self.pointcloud_go_elements.append(num_verts)
+
+        super_pointcloud_go = np.concatenate(self.pointclouds_go, axis=0)
+
+
+
+        vertex_attributes = {}
+        if not "vertexColor" in vertex_attributes:
+            vertex_attributes["vertexColor"] = np.tile(
+                np.array([0.0, 1.0, 0.0], dtype=np.float32), (super_pointcloud_go.shape[0], 1)
+            )
+        faces = np.linspace(0, super_pointcloud_go.shape[0], num=super_pointcloud_go.shape[0], endpoint=False, dtype=np.int32)[:, np.newaxis]
+        core_id = GlMeshCoreId()
+        self.viewer_widget.add_mesh_(core_id, super_pointcloud_go, faces)
+        prefab_id = GlMeshPrefabId(core_id)
+        self.viewer_widget.add_mesh_prefab_(
+            prefab_id,
+            shader="per_vertex_color",
+            vertex_attributes=vertex_attributes,
+            face_attributes={},
+            uniforms={},
+        )
+        self.pointcloud_go_instance_id = GlMeshInstanceId(prefab_id)
+        self.viewer_widget.add_mesh_instance_(self.pointcloud_go_instance_id, np.eye(4))
+        self.pointcloud_go_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_go_instance_id).mesh_core
+
+
+
+
+
+
+        self.controlpoints_offsets = [0]
+        self.controlpoints_elements = [len(self.leftDeformed[0]) + len(self.rightDeformed[0])]
+
+        for lctrlp, rctrlp in zip(self.leftDeformed[1:], self.rightDeformed[1:]):
+            num_verts = len(lctrlp) +  len(rctrlp)
+            self.controlpoints_offsets.append(self.controlpoints_offsets[-1] + num_verts)
+            self.controlpoints_elements.append(num_verts)
+
+        super_pc_controlpoints = np.concatenate([np.array(self.leftDeformed), np.array(self.rightDeformed)], axis=1)
+        super_pc_controlpoints = np.concatenate(super_pc_controlpoints)
+
+        vertex_attributes = {}
+        if not "vertexColor" in vertex_attributes:
+            vertex_attributes["vertexColor"] = np.tile(
+                np.array([0.0, 1.0, 1.0], dtype=np.float32), (super_pc_controlpoints.shape[0], 1)
+            )
+        
+        # I'm so sorry for this.
+        faces = []
+        res_u = zSubdivisions
+        res_v = len(self.leftDeformed[0]) // res_u
+        for b in range(len(self.leftDeformed)):
+            a = b * num_verts
+            for i in range(res_u - 1):
+                for j in range(res_v - 1):
+                    p0 = a + i * res_v + j
+                    p1 = p0 + 1
+                    p2 = p0 + res_v + 1
+                    p3 = p0 + res_v
+                    faces.append([p0, p1, p2, p3])  # a quad face
+                    faces.append([len(self.leftDeformed[0]) + p0, len(self.leftDeformed[0]) + p1, len(self.leftDeformed[0]) + p2, len(self.leftDeformed[0]) + p3])
+
+        core_id = GlMeshCoreId()
+        self.viewer_widget.add_mesh_(core_id, super_pc_controlpoints, np.array(faces))
+        prefab_id = GlMeshPrefabId(core_id)
+        self.viewer_widget.add_mesh_prefab_(
+            prefab_id,
+            shader="wireframe",
+            vertex_attributes=vertex_attributes,
+            face_attributes={},
+            uniforms={"lineColor": np.array([0.0, 1.0, 1.0])},
+        )
+        self.controlpoints_instance_id = GlMeshInstanceId(prefab_id)
+        self.viewer_widget.add_mesh_instance_(self.controlpoints_instance_id, np.eye(4))
+        self.controlpoints_mesh_core = self.viewer_widget.get_mesh(self.controlpoints_instance_id).mesh_core
+
+
+
+
+        '''
+        self.point_cloud_id = self.viewer_widget.display_point_cloud(super_point_cloud)
+        self.viewer_widget.process_mesh_events()
+        self.point_cloud_mesh_core = self.viewer_widget.get_mesh(
+           self.point_cloud_id
+        ).mesh_core
+        '''
+        
         self.addVocalfoldMeshes(self.leftDeformed, self.rightDeformed, zSubdivisions)
         self.setMeshes()
 
@@ -703,7 +938,7 @@ class Viewer(QWidget):
             igl.write_obj(path, combined_vertices[i], combined_faces)
 
     def automaticReconstruction(self):
-        self.segmentImages()
+        self.computeFeatures()
         self.trackPoints()
         self.buildCorrespondences()
         self.triangulate()

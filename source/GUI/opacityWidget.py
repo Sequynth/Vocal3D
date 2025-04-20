@@ -30,5 +30,22 @@ class OpacityWidget(QWidget):
             layout.addWidget(label, index+1, 0)
             layout.addWidget(checkbox, index+1, 1)
             layout.addWidget(slider, index+1, 2)
+
+        self.show_vf_checkbox = QCheckBox()
+        self.show_vf_checkbox.setChecked(True)
+        layout.addWidget(QLabel("VFM"), len(features) + 1, 0)
+        layout.addWidget(self.show_vf_checkbox, len(features) + 1, 1)
+
+
+        self.show_controlpoints = QCheckBox()
+        self.show_controlpoints.setChecked(True)
+        layout.addWidget(QLabel("CtrlP"), len(features) + 2, 0)
+        layout.addWidget(self.show_controlpoints, len(features) + 2, 1)
+
+
+        self.show_triangulated_points = QCheckBox()
+        self.show_triangulated_points.setChecked(True)
+        layout.addWidget(QLabel("TP"), len(features) + 3, 0)
+        layout.addWidget(self.show_triangulated_points, len(features) + 3, 1)
         
         self.setLayout(layout)

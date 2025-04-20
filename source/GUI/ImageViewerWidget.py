@@ -13,7 +13,7 @@ class ImageViewerWidget(QWidget):
         self.base_layout = QHBoxLayout(self)
         
         self.imageDICT = {}
-        self.features = ["GS", "VS", "GM", "GO", "P"]
+        self.features = ["GS", "VS", "GM", "GO", "P", "OP"]
         self.point_viewer = FeatureViewer(None, None)
         self.point_viewer.setMinimumSize(256, 512)
         self.point_viewer.fit_view()

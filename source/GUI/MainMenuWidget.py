@@ -22,7 +22,13 @@ class MainMenuWidget(QWidget):
 
         self.addSubMenu(
             "Tensor Product M5",
-            [("Z Subdivisions", "field", 8), ("X Subdivisions", "field", 3)],
+            [
+                ("Z Subdivisions", "field", 10), 
+                ("X Subdivisions", "field", 2),
+                ("R_0", "field", 0.1), # Again from Scherer, for Silicone: 1.0, 2.5 is good
+                ("T", "field",   0.3),
+                ("psi", "field", 0.0),
+            ],
         )
         self.addSubMenu(
             "Segmentation",
@@ -33,8 +39,10 @@ class MainMenuWidget(QWidget):
             ],
         )
         self.addSubMenu(
-            "RHC",
-            [
+            "Correspondence Estimation",
+            [   
+                ("RHC", "checkbox", False),
+                ("BF_RANSAC", "checkbox", True),
                 ("Iterations", "field", 30),
                 ("Consensus Size", "field", 8),
                 ("GA Thresh", "field", 5.0),
@@ -44,7 +52,9 @@ class MainMenuWidget(QWidget):
         )
         self.addSubMenu(
             "As-Rigid-As-Possible",
-            [("Iterations", "field", 2), ("Weight", "field", 10000)],
+            [
+             ("Iterations", "field", 2), 
+             ("Weight", "field", 10000)],
         )
         self.addSubMenu(
             "Least Squares Optimization",
@@ -57,7 +67,7 @@ class MainMenuWidget(QWidget):
         )
 
         self.base_layout.addWidget(QHLine())
-        self.addButton("Segment Images")
+        self.addButton("Compute Features")
         self.addButton("Track Points")
         self.addButton("Build Correspondences")
         self.addButton("Triangulate")

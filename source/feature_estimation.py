@@ -226,7 +226,7 @@ class NeuralFeatureEstimator(FeatureEstimator):
         self.point_localizer = point_extraction.LSQLocalization(heatmapaxis = 3, local_maxima_window = 11, gauss_window = 5)
 
         self._model = NeuralSegmentation.UNETNew().cuda()
-        self._model.load_from_dict(torch.load("assets/MKMS.pth.tar"))
+        self._model.load_from_dict(torch.load("assets/LSRH.pth.tar"))
 
     def compute_features(self, video: torch.tensor) -> None:
         self._glottis_segmentations = torch.zeros_like(video)
@@ -258,13 +258,30 @@ class NeuralFeatureEstimator(FeatureEstimator):
             laserpoints = self.point_localizer.test(softmaxed.unsqueeze(0))[:, [1,2]]
             self._laserpoint_positions.append(laserpoints)
 
-            upper_point, lower_point = self.compute_glottal_midline(self._glottis_segmentations[index])
-            self._glottal_midlines.append([upper_point, lower_point])
-
             glottal_outline_image = cv.compute_segmentation_outline(glottis_segmentation)
             self._glottal_outline_images[index] = glottal_outline_image
             self._glottal_outlines.append(torch.nonzero(glottal_outline_image))
-            
+
+        gaw = self.glottalAreaWaveform()
+        maxima_indices, values = cv.find_local_maxima_1d(self.glottalAreaWaveform())
+        maxima_indices = maxima_indices[values > gaw.median()]
+        maxima_indices = maxima_indices.tolist()
+        maxima_indices.append(video.shape[0] - 1)
+        maxima_indices.insert(0, 0)
+        gm = [self.compute_glottal_midline(self._glottis_segmentations[index]) for index in maxima_indices]
+
+        maxima_indices[-1] = maxima_indices[-1] + 1
+        gm[0] = gm[1]
+        gm[-1] = gm[-2]
+
+        points_a = cv.interpolate_from_neighbors(maxima_indices, torch.stack([gm[index][0] for index in range(len(gm))]).unsqueeze(1)).squeeze()
+        points_b = cv.interpolate_from_neighbors(maxima_indices, torch.stack([gm[index][1] for index in range(len(gm))]).unsqueeze(1)).squeeze()
+
+        glottal_midlines = []
+        for i in range(points_a.shape[0]):
+            glottal_midlines.append([points_a[i], points_b[i]])
+        self._glottal_midlines = glottal_midlines
+
         return self._glottis_segmentations, self._glottal_midlines, self._glottal_outlines, self._vocalfold_segmentations, self._laserpoint_positions, self._laserpoint_segmentations, self.glottalAreaWaveform()
 
 
