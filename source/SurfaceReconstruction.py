@@ -105,7 +105,7 @@ def rotateZ(mat, degree, deg=True):
     return np.matmul(mat, rotation_matrix)
 
 
-def generateARAPAnchors(vertices, points, nPointsU, glottalOutlinePoints, isLeft=True):
+def generateARAPAnchors(vertices, points, nPointsU, glottalOutlinePoints, x_subdivisions = 2, isLeft=True):
     # We want to first set the lower points of our Control Point Set to be fixed
     lower_indices = np.where(vertices[:, 1] == vertices[vertices[:, 1].argmin(), 1])
     lower_fixed = vertices[lower_indices]
@@ -154,17 +154,19 @@ def generateARAPAnchors(vertices, points, nPointsU, glottalOutlinePoints, isLeft
     # Fit glottal out and midline
     if glottalOutlinePoints.size != 0:
         for i in range(nPointsV):
-            for j in range(3):
-                controlPointIndex = 4 + j + i*nPointsU
+            for j in range(x_subdivisions + 2):
+                controlPointIndex = (x_subdivisions + 2) + j + i*nPointsU
                 controlPoint = vertices[controlPointIndex]
 
                 glottalPoints = glottalOutlinePoints + np.array([[0.0, controlPoint[1], 0.0]])
                 nnIndex, dist = helper.findNearestNeighbour(controlPoint, glottalPoints)
 
+                '''
                 if dist > 3.0:
                     anchors[controlPointIndex] = controlPoint.tolist()
                     continue
-
+                '''
+                    
                 direction = -glottalPoints[nnIndex] + controlPoint
                 direction = direction / np.linalg.norm(direction)
 

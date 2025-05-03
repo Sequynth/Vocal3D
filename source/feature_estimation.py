@@ -148,6 +148,53 @@ class SiliconeFeatureEstimator(FeatureEstimator):
         kernel = torch.ones((kernelsize, kernelsize), device=image.device)
         kernel[math.floor(kernelsize // 2), math.floor(kernelsize // 2)] = 0.0
         maxima = (image > kornia.morphology.dilation(image.unsqueeze(0).unsqueeze(0).float(), kernel)).squeeze()
+        '''
+        maxima_locations = maxima.nonzero()
+        maxima_locations = torch.concat([torch.zeros_like(maxima_locations)[:, :1], maxima_locations])
+
+        crops, y_windows, x_windows = cv.extract_windows_from_batch(image.unsqueeze(0), maxima_locations, device=image.device)
+        per_crop_max = crops.amax([-1, -2], keepdim=True)
+        per_crop_min = crops.amin([-1, -2], keepdim=True)
+
+        normalized_crops = (crops - per_crop_min) / (per_crop_max - per_crop_min)
+
+        new_points = []
+
+        for index, crop in enumerate(normalized_crops):
+            local_maximum = cv.unravel_index(
+                torch.argmax(crop[1:-1, 1:-1]), [5, 5]
+            )
+
+            # Add one again, since we removed the border from the local maximum lookup
+            x0, y0 = local_maximum[1] + 1, local_maximum[0] + 1
+
+            # Get 3x3 subwindow from crop, where the local maximum is centered.
+            neighborhood = 1
+            x_min = max(0, x0 - neighborhood)
+            x_max = min(crop.shape[1], x0 + neighborhood + 1)
+            y_min = max(0, y0 - neighborhood)
+            y_max = min(crop.shape[0], y0 + neighborhood + 1)
+
+            sub_image = crop[y_min:y_max, x_min:x_max]
+            sub_image = (sub_image - sub_image.min()) / (
+                sub_image.max() - sub_image.min()
+            )
+
+            centroids = cv.moment_method(
+                sub_image.unsqueeze(0)
+            ).squeeze()
+
+            refined_x = (
+                x_windows[index, 0, 0, 0] + centroids[0] + x0 - 1
+            ).item()
+            refined_y = (
+                y_windows[index, 0, 0, 0] + centroids[1] + y0 - 1
+            ).item()
+
+            new_points.append(torch.tensor([refined_y, refined_x], device=image.device, dtype=torch.float32))
+
+        '''
+
         return maxima, maxima.nonzero()
 
 

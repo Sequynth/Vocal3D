@@ -56,7 +56,7 @@ class BruteForceEstimator(CorrespondenceEstimator):
         pixelLocations, laserGridIDs = Correspondences.initialize(
                     laser,
                     camera,
-                    point_image.detach().cpu().numpy(),
+                    point_image.detach().cpu().numpy().copy(),
                     self._min_depth,
                     self._max_depth,
                 )
@@ -64,7 +64,7 @@ class BruteForceEstimator(CorrespondenceEstimator):
         self._correspondences = bruteForceCorrespondence.compute(
             laserGridIDs, 
             pixelLocations, 
-            point_image.detach().cpu().numpy(), 
+            point_image.detach().cpu().numpy().copy(), 
             camera, 
             laser, 
             self._consensus_size, 

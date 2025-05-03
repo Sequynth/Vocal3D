@@ -142,7 +142,7 @@ def generateMask(image, cameraMatrix, laserOrigin, laserBeam, minDistance, maxDi
     i = minDistance
     while i < maxDistance:
         point2d, distance = projectToImagePlane(i, laserOrigin, laserBeam, cameraMatrix)
-        
+
         radius = radiusMax - ((distance - distanceMin) / (distanceMax - distanceMin)) * (radiusMax - radiusMin)
 
         cv2.circle(image, (math.floor(point2d[0]), math.floor(point2d[1])), radius=round(radius), color=255, thickness=-1)

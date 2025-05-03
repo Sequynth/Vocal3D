@@ -1,6 +1,7 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QTransform
-from PyQt5.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView, QMenu
+from PyQt5.QtWidgets import (QGraphicsPixmapItem, QGraphicsScene,
+                             QGraphicsView, QMenu)
 
 
 class Zoomable(QGraphicsView):
@@ -53,6 +54,7 @@ class Zoomable(QGraphicsView):
 
         scene = QGraphicsScene(self)
         self.setScene(scene)
+        self._flipped = False
 
     def wheelEvent(self, event) -> None:
         """
@@ -131,7 +133,11 @@ class Zoomable(QGraphicsView):
         """
         Updates the view transformation based on the current zoom level.
         """
-        self.setTransform(QTransform().scale(self._zoom, self._zoom))
+
+        if self._flipped:
+            self.setTransform(QTransform().rotate(90.0).scale(self._zoom, self._zoom))
+        else:
+            self.setTransform(QTransform().scale(self._zoom, self._zoom))
 
     def set_image(self, image: QImage) -> None:
         """

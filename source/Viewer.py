@@ -177,14 +177,10 @@ class Viewer(QWidget):
         self.timer_thread.start()
         self.image_timer_thread.start()
 
-        path = "/media/nu94waro/Windows_C/save/datasets/HLEDataset/dataset"
         
+        # (UN)COMMENT THIS TO LOAD HLE DATA AFTER STARTING
         '''
-        self.loadData(
-            "assets/camera_calibration.json",
-            "assets/laser_calibration.json",
-            "assets/example_vid.avi",
-        )'''
+        path = "/media/nu94waro/Windows_C/save/datasets/HLEDataset/dataset"
         
         self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
         self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
@@ -201,7 +197,30 @@ class Viewer(QWidget):
             point_tracking.PointTracker(), 
             correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
             surface_reconstruction.SurfaceReconstructor())
+        '''
+
+        # (UN)COMMENT THIS TO LOAD SILICONE DATA AFTER STARTING
+
+        path = "assets"
         
+        self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
+        self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
+        self.loadData(
+            "assets/camera_calibration.json",
+            "assets/laser_calibration.json",
+            "assets/example_vid.avi",
+        )
+
+        self._reconstruction_pipeline = reconstruction_pipeline.ReconstructionPipeline(
+            self.camera, 
+            self.laser, 
+            feature_estimation.SiliconeFeatureEstimator(), 
+            point_tracking.SiliconePointTracker(), 
+            correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
+            surface_reconstruction.SurfaceReconstructor())
+            
+
+
         '''
         glottal_outline_images = torch.from_numpy(np.load("load/glottal_outline_images.npy")).cuda()
         glottis_segmentations = torch.from_numpy(np.load("load/glottis_segmentations.npy",)).cuda()
@@ -634,8 +653,10 @@ class Viewer(QWidget):
         else:
             print("Please choose a Segmentation Algorithm")
 
+        use_cuda = self.menu_widget.widget().getSubmenuValue("CUDA", "Use")
+
         self._reconstruction_pipeline.set_feature_estimator(feature_estimator)
-        self._reconstruction_pipeline.estimate_features(self.video)
+        self._reconstruction_pipeline.estimate_features(self.video if use_cuda else self.video.cpu())
 
         self.graph_widget.updateGraph(
             feature_estimator.glottalAreaWaveform().tolist(), self.graph_widget.glottal_seg_graph
@@ -650,12 +671,27 @@ class Viewer(QWidget):
         self.image_widget.point_viewer.add_glottal_midlines(feature_estimator.glottalMidlines())
         self.image_widget.point_viewer.add_glottal_outlines(feature_estimator.glottalOutlines())
 
+        
+        self.update_images_func()
         #self.segmentations = segmentations
         #self.laserdots = segmentations
 
     def trackPoints(self):
-        point_positions = self._reconstruction_pipeline.track_points(self.video)
+        use_cuda = self.menu_widget.widget().getSubmenuValue("CUDA", "Use")
+
+        point_tracker: point_tracking.PointTrackerBase = None
+        if self.menu_widget.widget().getSubmenuValue("Point Tracking", "Invivo"):
+            point_tracker = point_tracking.InvivoPointTracker()
+        elif self.menu_widget.widget().getSubmenuValue("Point Tracking", "Silicone"):
+            point_tracker = point_tracking.SiliconePointTracker()
+        else:
+            print("Please choose a Segmentation Algorithm")
+
+        self._reconstruction_pipeline.set_point_tracker(point_tracker)
+        point_positions = self._reconstruction_pipeline.track_points(self.video if use_cuda else self.video.cpu())
         self.image_widget.point_viewer.add_optimized_points(point_positions.detach().cpu().numpy())
+        
+        self.update_images_func()
 
     def buildCorrespondences(self):
         min_search_space = float(
@@ -738,6 +774,7 @@ class Viewer(QWidget):
             psi=psi,
             ARAP_iterations=ARAP_iterations,
             ARAP_weight=ARAP_weight,
+            flip_y=False if self.menu_widget.widget().getSubmenuValue("Point Tracking", "Silicone") else True
         )
 
         self.point_cloud_offsets = [0]
@@ -809,10 +846,6 @@ class Viewer(QWidget):
         self.pointcloud_go_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_go_instance_id).mesh_core
 
 
-
-
-
-
         self.controlpoints_offsets = [0]
         self.controlpoints_elements = [len(self.leftDeformed[0]) + len(self.rightDeformed[0])]
 
@@ -823,17 +856,13 @@ class Viewer(QWidget):
 
         super_pc_controlpoints = np.concatenate([np.array(self.leftDeformed), np.array(self.rightDeformed)], axis=1)
         super_pc_controlpoints = np.concatenate(super_pc_controlpoints)
-
-        vertex_attributes = {}
-        if not "vertexColor" in vertex_attributes:
-            vertex_attributes["vertexColor"] = np.tile(
-                np.array([0.0, 1.0, 1.0], dtype=np.float32), (super_pc_controlpoints.shape[0], 1)
-            )
-        
+       
         # I'm so sorry for this.
         faces = []
         res_u = zSubdivisions
         res_v = len(self.leftDeformed[0]) // res_u
+        half_verts = len(self.leftDeformed[0])
+        num_verts = 2 * half_verts
         for b in range(len(self.leftDeformed)):
             a = b * num_verts
             for i in range(res_u - 1):
@@ -843,7 +872,7 @@ class Viewer(QWidget):
                     p2 = p0 + res_v + 1
                     p3 = p0 + res_v
                     faces.append([p0, p1, p2, p3])  # a quad face
-                    faces.append([len(self.leftDeformed[0]) + p0, len(self.leftDeformed[0]) + p1, len(self.leftDeformed[0]) + p2, len(self.leftDeformed[0]) + p3])
+                    faces.append([half_verts + p0, half_verts + p1, half_verts + p2, half_verts + p3])
 
         core_id = GlMeshCoreId()
         self.viewer_widget.add_mesh_(core_id, super_pc_controlpoints, np.array(faces))
@@ -851,7 +880,7 @@ class Viewer(QWidget):
         self.viewer_widget.add_mesh_prefab_(
             prefab_id,
             shader="wireframe",
-            vertex_attributes=vertex_attributes,
+            vertex_attributes={},
             face_attributes={},
             uniforms={"lineColor": np.array([0.0, 1.0, 1.0])},
         )

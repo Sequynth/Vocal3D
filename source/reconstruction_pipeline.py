@@ -16,7 +16,7 @@ class ReconstructionPipeline:
         self._camera = camera
         self._laser = laser
         self._feature_estimator: feature_estimation.FeatureEstimator = feature_estimator
-        self._point_tracker: point_tracking.PointTracker = point_tracker
+        self._point_tracker: point_tracking.InvivoPointTracker = point_tracker
         self._correspondence_estimator = correspondence_estimator
         self._surface_reconstructor: surface_reconstruction.SurfaceReconstructor = surface_reconstructor
 
@@ -49,7 +49,7 @@ class ReconstructionPipeline:
     def set_feature_estimator(self, feature_estimator: feature_estimation.FeatureEstimator) -> None:
         self._feature_estimator = feature_estimator
 
-    def set_point_tracker(self, point_tracker: point_tracking.PointTracker) -> None:
+    def set_point_tracker(self, point_tracker: point_tracking.InvivoPointTracker) -> None:
         self._point_tracker = point_tracker
 
     def set_surface_reconstructor(self, surface_reconstructor: surface_reconstruction.SurfaceReconstructor) -> None:

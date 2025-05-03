@@ -150,7 +150,7 @@ def getNeighbours(faces, numPoints):
 # Given
 # 3D Points of type NumFrames X NumPoints x 3
 # Calibrated laser object
-def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions=5, xSubdivisions=3, r_zero = 1.0, T = 2.5, psi = 0.0, ARAP_iterations=2, ARAP_weight = 10000.0):
+def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions=5, xSubdivisions=3, r_zero = 1.0, T = 2.5, psi = 0.0, ARAP_iterations=2, ARAP_weight = 10000.0, flip_y = False):
     left_M5_list = []
     right_M5_list = []
     left_points_list = []
@@ -278,7 +278,8 @@ def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions
         glottalOutlinePoints[:, 1] = 0.0
 
         # Move vocal folds down a bit
-        alignedPoints[:, 1] = -alignedPoints[:, 1]
+        if flip_y:
+            alignedPoints[:, 1] = -alignedPoints[:, 1]
         alignedPoints -= np.array([[0.0, alignedPoints[:, 1].min()/2.0, 0.0]])
 
         # Split everything into left and right vocal fold
@@ -324,8 +325,8 @@ def controlPointBasedARAP(triangulatedPoints, camera, segmentator, zSubdivisions
         #left_anchors = generateARAPAnchors(M5_Left, leftPoints)
         #right_anchors = generateARAPAnchors(M5_Right, rightPoints)
         
-        left_anchors, constrained_vertices_left = SurfaceReconstruction.generateARAPAnchors(M5_Left, leftPoints, num_2d, glottalOutlinePoints[np.where(glottalOutlinePoints[:, 0] < 0)], isLeft=True)
-        right_anchors, constrained_vertices_right = SurfaceReconstruction.generateARAPAnchors(M5_Right, rightPoints, num_2d, glottalOutlinePoints[np.where(glottalOutlinePoints[:, 0] >= 0)], isLeft=False)
+        left_anchors, constrained_vertices_left = SurfaceReconstruction.generateARAPAnchors(M5_Left, leftPoints, num_2d, glottalOutlinePoints[np.where(glottalOutlinePoints[:, 0] < 0)], x_subdivisions=xSubdivisions, isLeft=True)
+        right_anchors, constrained_vertices_right = SurfaceReconstruction.generateARAPAnchors(M5_Right, rightPoints, num_2d, glottalOutlinePoints[np.where(glottalOutlinePoints[:, 0] >= 0)], x_subdivisions=xSubdivisions, isLeft=False)
 
         constrained_vertices_list_left.append(constrained_vertices_left.tolist())
         constrained_vertices_list_right.append(constrained_vertices_right.tolist())

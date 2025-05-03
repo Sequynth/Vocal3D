@@ -168,6 +168,16 @@ def compute_point_estimates_from_nearest_neighbors(closed_glottis_points: List[t
     return final_point_tensor
 
 
+def compute_pairwise_neighbors(a: torch.tensor, b: torch.tensor) -> torch.tensor:
+# Compute pairwise distances: [N, M]
+    dists = torch.cdist(a, b, p=2)  # Euclidean distance
+    # Find index of nearest neighbor in M for each point in N
+    nearest_indices = dists.argmin(dim=1)  # [N]
+    # Gather nearest neighbors
+    nearest_points = b[nearest_indices]  # [N, 2]
+    return nearest_points
+
+
 def fill_nans_in_point_timeseries(neighbors_over_time: torch.tensor) -> torch.tensor:
     a = 1
     return None

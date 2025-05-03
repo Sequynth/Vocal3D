@@ -2,7 +2,7 @@ from typing import List
 
 import zoomable
 from PyQt5 import QtCore
-from PyQt5.QtGui import QImage
+from PyQt5.QtGui import QImage, QTransform
 from PyQt5.QtWidgets import QMenu
 
 
@@ -41,6 +41,13 @@ class ZoomableVideo(zoomable.Zoomable):
         self._num_frames = len(self.images)
         self._image_width = video[0].width()
         self._image_height = video[0].height()
+
+        if self._image_width > self._image_height:
+            self._flipped = True
+        else:
+            self._flipped = False
+
+        self.fit_view()
 
     def contextMenuEvent(self, event) -> None:
         """
