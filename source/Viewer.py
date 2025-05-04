@@ -15,6 +15,7 @@ import igl
 import KocSegmentation
 import kornia
 import Laser
+import matplotlib.pyplot as plt
 import Mesh
 import NeuralSegmentation
 import numpy as np
@@ -94,8 +95,6 @@ class Viewer(QWidget):
         self.controlpoints = None
         self.controlpoints_mesh_core = None
         self.controlpoints_instance_id = None
-        self.controlpoints_offsets = []
-        self.controlpoints_elements = []
 
         self.left_vf_instance = None
         self.right_vf_instance = None
@@ -454,12 +453,10 @@ class Viewer(QWidget):
             self.player_widget.slider.value()
         ]
 
-        self.controlpoints_mesh_core.offset = self.controlpoints_offsets[
-            self.player_widget.slider.value()
-        ]
-        self.controlpoints_mesh_core.number_elements = self.controlpoints_elements[
-            self.player_widget.slider.value()
-        ]
+        self.viewer_widget.update_mesh_vertices(
+            self.controlpoints_instance_id,
+            self.controlpoints[frameNum].reshape((-1, 3)).astype(np.float32),
+        )
 
     def addVocalfoldMeshes(self, points_left, points_right, zSubdivisions):
         self.pts_left, self.pts_right, faces_left, faces_right = Mesh.generate_BM5_mesh(
@@ -845,37 +842,25 @@ class Viewer(QWidget):
         self.viewer_widget.add_mesh_instance_(self.pointcloud_go_instance_id, np.eye(4))
         self.pointcloud_go_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_go_instance_id).mesh_core
 
-
-        self.controlpoints_offsets = [0]
-        self.controlpoints_elements = [len(self.leftDeformed[0]) + len(self.rightDeformed[0])]
-
-        for lctrlp, rctrlp in zip(self.leftDeformed[1:], self.rightDeformed[1:]):
-            num_verts = len(lctrlp) +  len(rctrlp)
-            self.controlpoints_offsets.append(self.controlpoints_offsets[-1] + num_verts)
-            self.controlpoints_elements.append(num_verts)
-
-        super_pc_controlpoints = np.concatenate([np.array(self.leftDeformed), np.array(self.rightDeformed)], axis=1)
-        super_pc_controlpoints = np.concatenate(super_pc_controlpoints)
+        self.controlpoints = np.concatenate([np.array(self.leftDeformed), np.array(self.rightDeformed)], axis=1)
        
-        # I'm so sorry for this.
         faces = []
         res_u = zSubdivisions
         res_v = len(self.leftDeformed[0]) // res_u
         half_verts = len(self.leftDeformed[0])
         num_verts = 2 * half_verts
-        for b in range(len(self.leftDeformed)):
-            a = b * num_verts
-            for i in range(res_u - 1):
-                for j in range(res_v - 1):
-                    p0 = a + i * res_v + j
-                    p1 = p0 + 1
-                    p2 = p0 + res_v + 1
-                    p3 = p0 + res_v
-                    faces.append([p0, p1, p2, p3])  # a quad face
-                    faces.append([half_verts + p0, half_verts + p1, half_verts + p2, half_verts + p3])
+        for i in range(res_u - 1):
+            for j in range(res_v - 1):
+                p0 = i * res_v + j
+                p1 = p0 + 1
+                p2 = p0 + res_v + 1
+                p3 = p0 + res_v
+                faces.append([p0, p1, p2, p3])  # a quad face
+                faces.append([half_verts + p0, half_verts + p1, half_verts + p2, half_verts + p3])
+        faces = np.array(faces)
 
         core_id = GlMeshCoreId()
-        self.viewer_widget.add_mesh_(core_id, super_pc_controlpoints, np.array(faces))
+        self.viewer_widget.add_mesh_(core_id, self.controlpoints[self.player_widget.getCurrentFrame()], faces)
         prefab_id = GlMeshPrefabId(core_id)
         self.viewer_widget.add_mesh_prefab_(
             prefab_id,

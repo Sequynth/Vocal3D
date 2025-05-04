@@ -1,39 +1,17 @@
-from matplotlib.pyplot import grid
-import numpy as np
-
 import sys
+
+import numpy as np
+from matplotlib.pyplot import grid
+
 sys.path.append(".")
 
-from VocalfoldHSVSegmentation import vocalfold_segmentation
-import SiliconeSegmentator
-
-from Laser import Laser
-from Camera import Camera
-import argparse
-
-import helper
 import chamfer
-
-import BSplineVisualization
-import SurfaceReconstruction
-import SiliconeSurfaceReconstruction
-import scipy
-
-import RHC
-import VoronoiRHC
-import Triangulation
-import Correspondences
-import Objects
-import Intersections
-
-import matplotlib.pyplot as plt
 import cv2
-
+import helper
+import Intersections
+import matplotlib.pyplot as plt
+import Objects
 from sklearn.decomposition import PCA
-import visualization
-
-from PyQt5.QtWidgets import QApplication
-import Viewer
 
 
 def testGeneratingLaserBeams(camera, laser, local_maximum, minDistance, maxDistance, imageHeight, imageWidth):
@@ -153,3 +131,20 @@ def generateMisalignings(grid2DPixLocations, camera, laser, height, width):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
     plt.show()
+
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    array = np.load("deformed_left.npy")
+    z_points = 10
+    x_points = 20
+
+    for i in range(1, 10):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        von = i * array.shape[0] // z_points
+        bis = (i + 1) * array.shape[0] // z_points 
+        ax.scatter(array[von:bis, 0], array[von:bis, 1], array[von:bis, 2])
+        plt.show(block=True)

@@ -1,10 +1,9 @@
 
-from geomdl import BSpline
-from geomdl import utilities
-from torch_nurbs_eval.surf_eval import SurfEval
 import numpy as np
 import torch
+from geomdl import BSpline, utilities
 from scipy.spatial import Delaunay
+from torch_nurbs_eval.surf_eval import SurfEval
 
 
 def generate_surface_points(control_points, zSubdivs):
@@ -31,6 +30,26 @@ def generate_surface_points(control_points, zSubdivs):
     weights = torch.ones(inp_ctrl_pts.shape[0], num_ctrl_pts1, num_ctrl_pts2, 1)
 
     return layer(torch.cat((inp_ctrl_pts, weights), -1))
+
+
+def compute_quads(U, V):
+    faces = []
+    for u in range(V - 1):
+        for v in range(U - 1):
+            p0 = u*U + v
+            p1 = u*U + v + 1
+            p2 = (u+1)*U + v
+            p3 = (u+1)*U + v + 1
+            faces.append(np.array([p0, p1, p2, p3], dtype=np.int))
+    
+    # for v in range(V - 1):
+    #     p0 = U*v
+    #     p1 = U*v + U-1
+    #     p2 = U*(v+1)
+    #     p3 = u*U + v + 1
+    #     faces.append(np.array([p0, p1, p2, p3], dtype=np.int))
+
+    return faces
 
 
 def compute_faces(U, V, inverted=False):

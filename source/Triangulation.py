@@ -52,7 +52,7 @@ def triangulationMatNew(camera, laser, laser_correspondences, points_2d, minInte
         closest_distances = np.take_along_axis(dist, sorted_indices[:, 0:1], axis=1).flatten()
         worldPositions = worldPositions[closest_distances < 3.0]
 
-        points3D.append((aPoints + ((bPoints - aPoints) / 2.0)))
+        points3D.append(worldPositions)
 
     return points3D
 

@@ -17,9 +17,9 @@ def initialize(laser, camera, maxima_image, minInterval, maxInterval):
 
             mask = helper.generateMask(np.zeros_like(maxima_image, dtype=np.uint8), camera.intrinsic(), laser.origin(), laserRay, minInterval, maxInterval,  2, 2)
 
-            vis_mask = np.clip(mask.astype(float) + maxima.astype(float) * 255.0, 0, 255).astype(np.uint8)
-            cv2.imshow("Masks", vis_mask)
-            cv2.waitKey(1)
+            # vis_mask = np.clip(mask.astype(float) + maxima.astype(float) * 255.0, 0, 255).astype(np.uint8)
+            # cv2.imshow("Masks", vis_mask)
+            # cv2.waitKey(1)
 
 
             masked_maxima = maxima * mask
