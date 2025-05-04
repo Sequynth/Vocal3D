@@ -154,7 +154,7 @@ def generateARAPAnchors(vertices, points, nPointsU, glottalOutlinePoints, x_subd
     # Fit glottal out and midline
     if glottalOutlinePoints.size != 0:
         for i in range(nPointsV):
-            for j in range(x_subdivisions + 2):
+            for j in range(x_subdivisions + 3):
                 controlPointIndex = (x_subdivisions + 2) + j + i*nPointsU
                 controlPoint = vertices[controlPointIndex]
 

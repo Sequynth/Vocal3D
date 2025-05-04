@@ -24,7 +24,7 @@ class MainMenuWidget(QWidget):
             "Tensor Product M5",
             [
                 ("Z Subdivisions", "field", 10), 
-                ("X Subdivisions", "field", 2),
+                ("X Subdivisions", "field", 4),
                 ("R_0", "field", 0.1), # Again from Scherer, for Silicone: 1.0, 2.5 is good
                 ("T", "field",   0.3),
                 ("psi", "field", 0.0),

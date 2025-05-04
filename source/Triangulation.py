@@ -43,6 +43,14 @@ def triangulationMatNew(camera, laser, laser_correspondences, points_2d, minInte
         
         #Filter NaNs and badly estimated 3-D Positions
         worldPositions = worldPositions[distances < 5.0]
+        
+        # Filter points that have a large distance from neighboring points of the same frame
+        diff = np.expand_dims(worldPositions, 1) - np.expand_dims(worldPositions, 0)
+        dist = np.linalg.norm(diff, axis=2)
+        np.fill_diagonal(dist, np.inf)
+        sorted_indices = np.argsort(dist, axis=1)
+        closest_distances = np.take_along_axis(dist, sorted_indices[:, 0:1], axis=1).flatten()
+        worldPositions = worldPositions[closest_distances < 3.0]
 
         points3D.append((aPoints + ((bPoints - aPoints) / 2.0)))
 
