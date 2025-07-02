@@ -135,6 +135,81 @@ def generateMisalignings(grid2DPixLocations, camera, laser, height, width):
 
 
 if __name__ == "__main__":
+    import torch
+
+    x = torch.rand([1, 1, 5, 5]).repeat([1, 2, 1, 1])
+
+    x_min = torch.tensor([[1], [0]])
+    y_min = torch.tensor([[1], [0]])
+    window_size = 3
+
+
+    # Assume x is (B, C, H, W)
+    B, C, H, W = x.shape
+    x_flat = x.view(B * C, H, W)
+
+    # Window origin coords (B*C,)
+    x_min_flat = x_min.view(-1)
+    y_min_flat = y_min.view(-1)
+
+    # Relative coordinate grid (H_win, W_win)
+    dy, dx = torch.meshgrid(
+        torch.arange(window_size, device=x.device),
+        torch.arange(window_size, device=x.device),
+        indexing='ij'  # ensures (row, col) order
+    )
+
+    # Broadcast dy, dx to (B*C, H_win, W_win)
+    ys = y_min_flat[:, None, None] + dy      # (B*C, H_win, W_win)
+    xs = x_min_flat[:, None, None] + dx      # (B*C, H_win, W_win)
+
+    # Batch indices (B*C, H_win, W_win)
+    batch_idx = torch.arange(B * C, device=x.device)[:, None, None].expand(-1, window_size, window_size)
+
+    # Extract windows (B*C, H_win, W_win)
+    windows_flat = x_flat[batch_idx, ys, xs]
+
+    # Reshape back to (B, C, H_win, W_win)
+    windows = windows_flat.view(B, C, window_size, window_size)
+
+    a = 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     import matplotlib.pyplot as plt
 
     array = np.load("deformed_left.npy")

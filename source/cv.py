@@ -227,6 +227,28 @@ def moment_method(images: torch.tensor) -> torch.tensor:
     return torch.concat([x_centroids + 0.5, y_centroids + 0.5], dim=-1)[:, 0, :]
 
 
+def batched_centroid_method(images: torch.tensor) -> torch.tensor:
+    # Get the pixel gridrows = torch.arange(size[0])
+    cols = torch.arange(images.shape[-1], device=images.device)
+    rows = torch.arange(images.shape[-2], device=images.device)
+
+    # Create a grid
+    y, x = torch.meshgrid(rows, cols, indexing="ij")
+
+    # Total intensity (0th moment)
+    total_intensity = torch.sum(images, dim=(-2, -1), keepdims=True)
+
+    # First moments for x and y
+    x_moment = torch.sum(x[None, None, ...] * images, dim=(-2, -1), keepdims=True)
+    y_moment = torch.sum(y[None, None, ...] * images, dim=(-2, -1), keepdims=True)
+
+    # Subpixel centroid
+    x_centroids = x_moment / total_intensity
+    y_centroids = y_moment / total_intensity
+
+    return torch.concat([x_centroids + 0.5, y_centroids + 0.5], dim=-1)
+
+
 def fill_nan_border_values(points: torch.tensor) -> torch.tensor:
     for point_index, point_over_time in enumerate(points):
         nan_count_start = 0
@@ -441,3 +463,77 @@ def extract_windows_from_batch(batch, indices, window_size=7, device="cuda"):
     ]
 
     return windows.reshape(-1, window_size, window_size), y_windows, x_windows
+
+
+
+
+def find_zero_runs_kornia(x: torch.Tensor, k: int) -> torch.Tensor:
+    """
+    Finds a mask of positions of 0s that are between 1s, with run length <= k.
+
+    Args:
+        x (torch.Tensor): 1D binary tensor (0s and 1s), shape (n,) or (1, 1, n)
+        k (int): Max run length to detect
+
+    Returns:
+        torch.Tensor: Binary mask (1 where 0 is part of a valid run between 1s)
+    """
+    if x.dim() == 1:
+        x = x[None, None, None, :]  # (B=1, C=1, H, W)
+    elif x.dim() == 2:
+        x = x[None, None, ...]      # (B=1, C=1, H, W)
+
+    x = x.float()
+
+    result_mask = torch.zeros_like(x)
+    for run_len in range(1, k + 1):
+        # Construct structuring element: [1, 0, 0, ..., 0, 1]
+        kernel = torch.zeros(1, 1, run_len + 2, device=x.device)
+        kernel[0, 0, 0] = 1
+        kernel[0, 0, -1] = 1
+
+        # Invert input to highlight 0s
+        x_inv = 1 - x
+
+        # Perform hit-or-miss via erosion: only center 0s remain if surrounded by 1s
+        eroded = kornia.morphology.erosion(x_inv, kernel)
+
+        # Mask out locations that are actually 0s (in inverted signal) and between 1s
+        match_indices = torch.nonzero(eroded[0, 0] == 1).squeeze()
+
+        for idx in match_indices:
+            run_indices = torch.arange(idx + 1, idx + 1 + run_len, device=x.device)
+            result_mask[0, 0, run_indices] = 1
+
+    return result_mask.squeeze()
+
+def match_pattern_unfold(x: torch.Tensor, pattern: torch.Tensor) -> torch.Tensor:
+    """
+    Match exact occurrences of `pattern` in 1D batched binary tensor `x`.
+
+    Args:
+        x (torch.Tensor): (N, L) tensor of 0/1
+        pattern (torch.Tensor): (P,) binary tensor pattern
+
+    Returns:
+        torch.Tensor: (N, L) bool mask, True where pattern matches (full span)
+    """
+    N, L = x.shape
+    P = pattern.shape[0]
+
+    # Use unfold to get sliding windows of size P: shape (N, L-P+1, P)
+    windows = x.unfold(dimension=1, size=P, step=1)  # (N, L-P+1, P)
+
+    # Compare windows to pattern (broadcast pattern)
+    matches = (windows == pattern).all(dim=2)  # (N, L-P+1) bool mask for match start positions
+
+    # Create output mask (N, L), mark full matched windows
+    mask = torch.zeros_like(x, dtype=torch.bool)
+
+    # For each offset in the pattern length, mark matches shifted accordingly
+    for offset in range(P):
+        # Start index: offset
+        # End index: offset + number of matches along dimension 1
+        mask[:, offset:offset + matches.shape[1]] |= matches
+
+    return mask

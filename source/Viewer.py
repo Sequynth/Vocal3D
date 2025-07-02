@@ -178,7 +178,7 @@ class Viewer(QWidget):
 
         
         # (UN)COMMENT THIS TO LOAD HLE DATA AFTER STARTING
-        '''
+        
         path = "/media/nu94waro/Windows_C/save/datasets/HLEDataset/dataset"
         
         self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
@@ -193,30 +193,30 @@ class Viewer(QWidget):
             self.camera, 
             self.laser, 
             feature_estimation.NeuralFeatureEstimator("cuda"), 
-            point_tracking.PointTracker(), 
+            point_tracking.InvivoPointTracker(), 
             correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
             surface_reconstruction.SurfaceReconstructor())
-        '''
+        
 
         # (UN)COMMENT THIS TO LOAD SILICONE DATA AFTER STARTING
 
-        path = "assets"
+        # path = "assets"
         
-        self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
-        self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
-        self.loadData(
-            "assets/camera_calibration.json",
-            "assets/laser_calibration.json",
-            "assets/example_vid.avi",
-        )
+        # self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
+        # self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
+        # self.loadData(
+        #     "assets/camera_calibration.json",
+        #     "assets/laser_calibration.json",
+        #     "assets/example_vid.avi",
+        # )
 
-        self._reconstruction_pipeline = reconstruction_pipeline.ReconstructionPipeline(
-            self.camera, 
-            self.laser, 
-            feature_estimation.SiliconeFeatureEstimator(), 
-            point_tracking.SiliconePointTracker(), 
-            correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
-            surface_reconstruction.SurfaceReconstructor())
+        # self._reconstruction_pipeline = reconstruction_pipeline.ReconstructionPipeline(
+        #     self.camera, 
+        #     self.laser, 
+        #     feature_estimation.SiliconeFeatureEstimator(), 
+        #     point_tracking.SiliconePointTracker(), 
+        #     correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
+        #     surface_reconstruction.SurfaceReconstructor())
             
 
 
@@ -678,7 +678,7 @@ class Viewer(QWidget):
 
         point_tracker: point_tracking.PointTrackerBase = None
         if self.menu_widget.widget().getSubmenuValue("Point Tracking", "Invivo"):
-            point_tracker = point_tracking.InvivoPointTracker()
+            point_tracker = point_tracking.InvivoPointTrackerNew()
         elif self.menu_widget.widget().getSubmenuValue("Point Tracking", "Silicone"):
             point_tracker = point_tracking.SiliconePointTracker()
         else:
