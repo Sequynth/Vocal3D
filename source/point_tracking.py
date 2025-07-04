@@ -322,6 +322,9 @@ class InvivoPointTrackerNew(PointTrackerBase):
         crops = crops.reshape(
             video.shape[0], classifications.shape[1], crops.shape[-2], crops.shape[-1]
         ).permute(1, 0, 2, 3)
+        # normalized_crops = normalized_crops.reshape(
+        #     video.shape[0], classifications.shape[1], crops.shape[-2], crops.shape[-1]
+        # ).permute(1, 0, 2, 3)
 
         specular_duration = 5
         # Iterate over every point and class as well as their respective crops
@@ -353,9 +356,10 @@ class InvivoPointTrackerNew(PointTrackerBase):
         interpolation_mask = interpolation_mask - interpolation_edges
 
         # Get local maxima inside middle of crop
-        B, C, H, W = normalized_crops[:, :, 1:-1, 1:-1].shape
-        crops_flattened = normalized_crops[:, :, 1:-1, 1:-1].reshape(B, C, -1) 
-        max_vals, max_indices = crops_flattened.max(dim=2)
+        P, F , _, _ = crops.shape
+        PF, H, W = normalized_crops[:, 1:-1, 1:-1].shape
+        crops_flattened = normalized_crops[:, 1:-1, 1:-1].reshape(PF, -1) 
+        max_vals, max_indices = crops_flattened.max(dim=-1)
 
         # Get final indices and add 1, since we removed the border
         h_indices = torch.div(max_indices, W, rounding_mode='trunc') + 1
@@ -363,19 +367,12 @@ class InvivoPointTrackerNew(PointTrackerBase):
 
         # Get 3x3 subwindows around local maxima
         neighborhood = 1
-        x_min = torch.maximum(torch.tensor([0], device=w_indices.device), w_indices - neighborhood)
-        x_max = torch.minimum(torch.tensor([W], device=w_indices.device), w_indices + neighborhood + 1)
-        y_min = torch.maximum(torch.tensor([0], device=w_indices.device), h_indices - neighborhood)
-        y_max = torch.minimum(torch.tensor([H], device=w_indices.device), h_indices + neighborhood + 1)
+        x_min = torch.maximum(torch.tensor([0], device=w_indices.device), w_indices - neighborhood - 1)
+        y_min = torch.maximum(torch.tensor([0], device=w_indices.device), h_indices - neighborhood - 1)
 
-        window_size = 3
+        window_size = neighborhood + 2
         # Assume x is (B, C, H, W)
-        B, C, H, W = crops.shape
-        x_flat = crops.view(B * C, H, W)
-
-        # Window origin coords (B*C,)
-        x_min_flat = x_min.view(-1)
-        y_min_flat = y_min.view(-1)
+        x_flat = normalized_crops#.view(PF, window_size, window_size)
 
         # Relative coordinate grid (H_win, W_win)
         dy, dx = torch.meshgrid(
@@ -385,57 +382,68 @@ class InvivoPointTrackerNew(PointTrackerBase):
         )
 
         # Broadcast dy, dx to (B*C, H_win, W_win)
-        ys = y_min_flat[:, None, None] + dy      # (B*C, H_win, W_win)
-        xs = x_min_flat[:, None, None] + dx      # (B*C, H_win, W_win)
+        ys = y_min[..., None, None] + dy     # (B*C, H_win, W_win)
+        xs = x_min[..., None, None] + dx      # (B*C, H_win, W_win)
 
         # Batch indices (B*C, H_win, W_win)
-        batch_idx = torch.arange(B * C, device=crops.device)[:, None, None].expand(-1, window_size, window_size)
+        batch_idx = torch.arange(PF, device=crops.device)[..., None, None].expand(-1, window_size, window_size)
 
         # Extract windows (B*C, H_win, W_win)
-        windows_flat = x_flat[batch_idx, ys, xs]
+        windows_flat = normalized_crops[batch_idx, ys, xs]
 
         # Reshape back to (B, C, H_win, W_win)
-        sub_windows = windows_flat.view(B, C, window_size, window_size)
+        sub_windows = windows_flat.view(PF, window_size, window_size)
         
         # Compute sub-pixel accurate points using the moment method
         # We could also utilize guo's method here obviously.
-        subpixel_points = cv.batched_centroid_method(sub_windows)
+        subpixel_points = cv.batched_centroid_method(sub_windows).squeeze().reshape(P, F, 2)
+
+        subpixel_points += torch.stack([x_min, y_min]).reshape(subpixel_points.shape) + torch.concat([x_windows[..., None], y_windows[..., None]], dim=-1)
 
         # Recall that the subpixel points now also include points that we know should not have been computed
         # I.e. the points that we found out that need to be interpolated defined in the interpolation mask
+        # Unfortunately, to resolve this we will now need a nested loop to find points for interpolation
+        for p in range(P):
+            points_over_time = subpixel_points[p]
+            interpolants_over_time = interpolation_edges[p].nonzero().squeeze()
 
-
-        # Unfortunately, we will now iterate over the amount of points:
-        for i in range(optimized_points.shape[0]):
-            points_over_time = subpixel_points[:, i, :, :]
             interpolated_points = torch.zeros_like(points_over_time)
-            interpolants_over_time = interpolation_edges[:, i].nonzero()[:, 0]
+            interpolants_over_time = interpolation_edges[p].nonzero().squeeze()
 
             for j in range(interpolants_over_time.shape[0] - 1):
-                first_lerp_index = interpolants_over_time[j] + 1
-                second_lerp_index = interpolants_over_time[j + 1] - 1
 
-                interval_length = second_lerp_index - first_lerp_index
+
+                first_lerp_index = interpolants_over_time[j]
+                second_lerp_index = interpolants_over_time[j + 1]
+                
+                # Compute mid-point such that we only compute necessary interpolation masks
+                mid_point = ((second_lerp_index + first_lerp_index) / 2).floor().int()
+                if not interpolation_mask[p, mid_point]:
+                    continue
+
+                interval_length = second_lerp_index - first_lerp_index + 1
                 first_lerp_point = points_over_time[first_lerp_index]
                 second_lerp_point = points_over_time[second_lerp_index]
 
-                first_lerp_point = first_lerp_point.unsqueeze(0).repeat(interval_length)
-                second_lerp_point = second_lerp_point.unsqueeze(0).repeat(interval_length)
-                alphas = torch.arange(1, interval_length)
+                first_lerp_point = first_lerp_point.unsqueeze(0).repeat(interval_length, 1)
+                second_lerp_point = second_lerp_point.unsqueeze(0).repeat(interval_length, 1)
+                alphas = torch.arange(0, interval_length, device=subpixel_points.device) / interval_length
 
-                lerped_points = cv.lerp(first_lerp_point, second_lerp_point, alphas)
-                interpolated_points[first_lerp_index:second_lerp_index] = lerped_points
+                lerped_points = cv.lerp(first_lerp_point, second_lerp_point, alphas[..., None])
+                subpixel_points[p, first_lerp_index:second_lerp_index+1] = lerped_points
+
+        # Add window 
 
         # Mask out wrongly lerped points
         # Mask out points that needed to be lerped in subpixel_points
         # Add masked points to subpixel_points
-
+        optimized_points = subpixel_points[:, :, [1, 0]].permute(1, 0, 2)
 
         # Filter points that fall into the glottal region
-        optimized_points = filter_points_on_glottis(optimized_points, feature_estimator.glottisSegmentations())
+        optimized_points = filter_points_on_glottis(optimized_points.cpu(), feature_estimator.glottisSegmentations().cpu())
 
         # And lie below a certain intensity
-        optimized_points = filter_points_by_intensity(optimized_points, video, intensity_threshold=self._min_point_intensity)
+        optimized_points = filter_points_by_intensity(optimized_points.cpu(), video.cpu(), intensity_threshold=self._min_point_intensity)
 
         return optimized_points
 
