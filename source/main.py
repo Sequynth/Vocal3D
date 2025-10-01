@@ -1,3 +1,10 @@
+
+# fix deprecation in numpy
+import numpy as np
+np.float = float
+np.int = int
+np.bool = bool
+
 import sys
 sys.path.append("source/")
 sys.path.append("source/GUI/")
