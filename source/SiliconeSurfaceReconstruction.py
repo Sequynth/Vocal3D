@@ -22,8 +22,8 @@ from geomdl import BSpline, utilities
 from geomdl.visualization import VisMPL
 from Laser import Laser
 from matplotlib import cm
-from pycallgraph import PyCallGraph
-from pycallgraph.output import GraphvizOutput
+from pycallgraph2 import PyCallGraph
+from pycallgraph2.output import GraphvizOutput
 from PyQt5.QtWidgets import QApplication
 from pytorch3d.loss import chamfer_distance
 from scipy.spatial import Delaunay, KDTree
@@ -81,9 +81,16 @@ def translateVertices(vertices, translation):
 
 
 def rotateX(mat, degree, deg=True):
-    rad = degree
+        
+    # Convert PyTorch tensor / NumPy scalar / single-element array to float
+    if hasattr(degree, "item"):  # PyTorch tensor
+        degree = degree.item()
+    degree = float(degree)  # ensure it's a Python float
+    
     if deg:
         rad = M5.deg2rad(degree)
+    else:
+        rad = degree
 
     rotation_matrix = np.array([[np.cos(rad), 0, np.sin(rad)],
                                 [0, 1, 0],
@@ -386,15 +393,14 @@ def surfaceOptimization(control_points, points, zSubdivisions=10, iterations=10,
     #TODO: This should depend on the number of x subdivisions!
     control_points_for_eval = control_points[:, :, :4, :]
 
-    points = np.array(points)
-    minimum = 1000000000000000
-    for i in range(points.shape[0]):
+    points = [np.asarray(p) for p in points]
+    
+    for i in range(len(points)):
         if points[i].shape[0] == 0:
             points[i] = points[i-1]
-
-        if minimum > points[i].shape[0]:
-            minimum = points[i].shape[0]
-
+    
+    minimum = min(p.shape[0] for p in points)
+    
 
     targets = np.array(reduceArrays(points, minimum))
 
