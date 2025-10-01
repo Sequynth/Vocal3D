@@ -24,7 +24,7 @@ def generate_surface_points(control_points, zSubdivs):
     num_ctrl_pts1 = np.array(frame_ctrl_pnts.shape[1])
     num_ctrl_pts2 = np.array(frame_ctrl_pnts.shape[2])
 
-    layer = SurfEval(num_ctrl_pts1, num_ctrl_pts2, dimension=3, p=3, q=3, u=None, v=None, out_dim_u=32, out_dim_v=128)
+    layer = SurfEval(num_ctrl_pts1, num_ctrl_pts2, dimension=3, p=3, q=3, knot_u=None, knot_v=None, out_dim_u=32, out_dim_v=128)
 
     inp_ctrl_pts = torch.FloatTensor(frame_ctrl_pnts.astype(np.float32))
     weights = torch.ones(inp_ctrl_pts.shape[0], num_ctrl_pts1, num_ctrl_pts2, 1)
