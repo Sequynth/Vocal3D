@@ -446,20 +446,13 @@ def generateEPCLineImage(camera, laser, minDistance, maxDistance, imageHeight, i
 def segmentation_to_color_mask(segmentation: torch.Tensor, color=(255, 0, 0), alpha=255):
     """
     Converts a 2D PyTorch tensor with values in [0, 1] to a colored RGBA image.
-
-    Parameters:
-        segmentation (torch.Tensor): 2D tensor with float values in [0, 1]
-        color (tuple): RGB color as (R, G, B)
-        alpha (int): Alpha value (0–255)
-
-    Returns:
-        torch.Tensor: 3D uint8 tensor with shape (H, W, 4)
     """
     assert segmentation.ndim == 2, "Segmentation must be a 2D tensor"
     assert torch.min(segmentation) >= 0 and torch.max(segmentation) <= 1, "Values must be in [0, 1]"
 
+    device = segmentation.device  # Keep everything on the same device
     h, w = segmentation.shape
-    rgba = torch.zeros((h, w, 4), dtype=torch.uint8)
+    rgba = torch.zeros((h, w, 4), dtype=torch.uint8, device=device)
 
     # Apply color channels
     for i in range(3):  # R, G, B
@@ -467,8 +460,9 @@ def segmentation_to_color_mask(segmentation: torch.Tensor, color=(255, 0, 0), al
 
     rgba[..., 3] = (segmentation * alpha).byte()  # Alpha channel
 
-    rgba[segmentation == 0][3] = 0
+    # Correct alpha where segmentation is 0
+    mask = (segmentation == 0)
+    rgba[mask.nonzero(as_tuple=True) + (3,)] = 0
 
     return rgba
-
     
