@@ -27,6 +27,7 @@ import SiliconeSegmentation
 import SiliconeSurfaceReconstruction
 import surface_reconstruction
 import torch
+import trimesh
 import Triangulation
 import visualization
 import VoronoiRHC
@@ -165,7 +166,7 @@ class Viewer(QWidget):
         self.image_timer_thread = QThread(self)
         self.image_timer_thread.started.connect(self.gen_image_timer_thread)
 
-        self.player_widget.slider.valueChanged.connect(self.updatePointCloud)
+        # self.player_widget.slider.valueChanged.connect(self.updatePointCloud)
         self.player_widget.slider.valueChanged.connect(self.update_images_func)
 
         self.image_widget.opacity_widget.show_vf_checkbox.stateChanged.connect(self.toggleMeshVisibility)
@@ -179,44 +180,44 @@ class Viewer(QWidget):
         
         # (UN)COMMENT THIS TO LOAD HLE DATA AFTER STARTING
         
-        path = "/media/nu94waro/Windows_C/save/datasets/HLEDataset/dataset"
+#         path = "/media/nu94waro/Windows_C/save/datasets/HLEDataset/dataset"
+#         
+#         self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
+#         self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
+#         self.loadData(
+#             os.path.join(path, "camera_calibration.json"),
+#             os.path.join(path, "laser_calibration.json"),
+#             os.path.join(path, "MK/MK.avi"),
+#         )
+# 
+#         self._reconstruction_pipeline = reconstruction_pipeline.ReconstructionPipeline(
+#             self.camera, 
+#             self.laser, 
+#             feature_estimation.NeuralFeatureEstimator("cuda"), 
+#             point_tracking.InvivoPointTracker(), 
+#             correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
+#             surface_reconstruction.SurfaceReconstructor())
+        
+
+        # (UN)COMMENT THIS TO LOAD SILICONE DATA AFTER STARTING
+
+        path = "assets"
         
         self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
         self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
         self.loadData(
-            os.path.join(path, "camera_calibration.json"),
-            os.path.join(path, "laser_calibration.json"),
-            os.path.join(path, "MK/MK.avi"),
+            "assets/camera_calibration.json",
+            "assets/laser_calibration.json",
+            "assets/example_vid.avi",
         )
 
         self._reconstruction_pipeline = reconstruction_pipeline.ReconstructionPipeline(
             self.camera, 
             self.laser, 
-            feature_estimation.NeuralFeatureEstimator("cuda"), 
-            point_tracking.InvivoPointTracker(), 
+            feature_estimation.SiliconeFeatureEstimator(), 
+            point_tracking.SiliconePointTracker(), 
             correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
             surface_reconstruction.SurfaceReconstructor())
-        
-
-        # (UN)COMMENT THIS TO LOAD SILICONE DATA AFTER STARTING
-
-        # path = "assets"
-        
-        # self.menu_widget.widget().ocs_widget.camera_calib_path = os.path.join(path, "camera_calibration.json")
-        # self.menu_widget.widget().ocs_widget.laser_calib_path = os.path.join(path, "laser_calibration.json")
-        # self.loadData(
-        #     "assets/camera_calibration.json",
-        #     "assets/laser_calibration.json",
-        #     "assets/example_vid.avi",
-        # )
-
-        # self._reconstruction_pipeline = reconstruction_pipeline.ReconstructionPipeline(
-        #     self.camera, 
-        #     self.laser, 
-        #     feature_estimation.SiliconeFeatureEstimator(), 
-        #     point_tracking.SiliconePointTracker(), 
-        #     correspondence_estimation.BruteForceEstimator(10, 30, 40, 100), 
-        #     surface_reconstruction.SurfaceReconstructor())
             
 
 
@@ -384,7 +385,7 @@ class Viewer(QWidget):
         if curr_frame == self.player_widget.slider.maximum() - 1:
             return
 
-        self.updateMesh(curr_frame)
+        # self.updateMesh(curr_frame)
         self.updatePlots(curr_frame)
 
     def update_images_func(self):
@@ -472,11 +473,11 @@ class Viewer(QWidget):
             (-1, 3)
         )
 
-        if self.right_vf_instance is not None:
-            self.viewer_widget.remove_mesh_(self.right_vf_instance)
+        # if self.right_vf_instance is not None:
+        #     self.viewer_widget.remove_mesh_(self.right_vf_instance)
 
-        if self.left_vf_instance is not None:
-            self.viewer_widget.remove_mesh_(self.left_vf_instance)
+        # if self.left_vf_instance is not None:
+        #     self.viewer_widget.remove_mesh_(self.left_vf_instance)
 
         self.graph_widget.updateGraph(
             np.array(points_left)[:, :, 1].max(axis=1),
@@ -520,17 +521,17 @@ class Viewer(QWidget):
 
 
 
-        mesh_index = self.viewer_widget.add_mesh(vertices_left, faces_left)
-        mesh_prefab_index = self.viewer_widget.add_mesh_prefab(mesh_index, "colormap", uniforms=uniforms)
-        self.left_vf_instance = self.viewer_widget.add_mesh_instance(
-            mesh_prefab_index, np.eye(4, dtype="f")
-        )
+        #mesh_index = self.viewer_widget.add_mesh(vertices_left, faces_left)
+        #mesh_prefab_index = self.viewer_widget.add_mesh_prefab(mesh_index, "colormap", uniforms=uniforms)
+        #self.left_vf_instance = self.viewer_widget.add_mesh_instance(
+        #    mesh_prefab_index, np.eye(4, dtype="f")
+        #)
 
-        mesh_index = self.viewer_widget.add_mesh(vertices_right, faces_right)
-        mesh_prefab_index = self.viewer_widget.add_mesh_prefab(mesh_index, "colormap", uniforms=uniforms)
-        self.right_vf_instance = self.viewer_widget.add_mesh_instance(
-            mesh_prefab_index, np.eye(4, dtype="f")
-        )
+        #mesh_index = self.viewer_widget.add_mesh(vertices_right, faces_right)
+        #mesh_prefab_index = self.viewer_widget.add_mesh_prefab(mesh_index, "colormap", uniforms=uniforms)
+        #self.right_vf_instance = self.viewer_widget.add_mesh_instance(
+        #    mesh_prefab_index, np.eye(4, dtype="f")
+        #)
 
         
 
@@ -581,28 +582,28 @@ class Viewer(QWidget):
 
     def togglePointVisibility(self):
         visibility = self.viewer_widget.get_mesh_instance_visibility(self.pointcloud_instance_id)
-        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_instance_id, not visibility)
-        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_instance_id, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_instance_id, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_instance_id, not visibility)
 
     def toggleControlpointVisibility(self):
         visibility = self.viewer_widget.get_mesh_instance_visibility(self.controlpoints_instance_id)
-        self.viewer_widget.set_mesh_instance_visibility(self.controlpoints_instance_id, not visibility)
-        self.viewer_widget.set_mesh_instance_visibility(self.controlpoints_instance_id, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.controlpoints_instance_id, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.controlpoints_instance_id, not visibility)
 
     def toggleGoVisibility(self):
         visibility = self.viewer_widget.get_mesh_instance_visibility(self.pointcloud_go_instance_id)
-        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_go_instance_id, not visibility)
-        self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_go_instance_id, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_go_instance_id, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.pointcloud_go_instance_id, not visibility)
 
     def toggleMeshVisibility(self):
         visibility = self.viewer_widget.get_mesh_instance_visibility(self.left_vf_instance)
-        self.viewer_widget.set_mesh_instance_visibility(self.right_vf_instance, not visibility)
-        self.viewer_widget.set_mesh_instance_visibility(self.left_vf_instance, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.right_vf_instance, not visibility)
+        # self.viewer_widget.set_mesh_instance_visibility(self.left_vf_instance, not visibility)
 
     def toggleVisibility(self, instance_id):
         mesh_instance = self.viewer_widget.get_mesh_instance(instance_id)
-        mesh_instance.set_visibility(not mesh_instance.get_visibility())
-        self.viewer_widget.update()
+        # mesh_instance.set_visibility(not mesh_instance.get_visibility())
+        # self.viewer_widget.update()
 
     def setImages(self):
         self.images_set = True
@@ -739,17 +740,17 @@ class Viewer(QWidget):
         # glottalmidline = self.segmentator.getGlottalMidline(self.images[self.frameOfClosedGlottis])
 
         if self.pointcloud_instance_id is not None:
-            self.viewer_widget.remove_mesh_(self.pointcloud_instance_id)
+            # self.viewer_widget.remove_mesh_(self.pointcloud_instance_id)
             self.pointcloud_instance_id = None
             self.point_cloud_mesh_core = None
 
         if self.pointcloud_go_instance_id is not None:
-            self.viewer_widget.remove_mesh_(self.pointcloud_go_instance_id)
+            # self.viewer_widget.remove_mesh_(self.pointcloud_go_instance_id)
             self.pointcloud_go_instance_id = None
             self.pointcloud_go_mesh_core = None
 
         if self.controlpoints_instance_id is not None:
-            self.viewer_widget.remove_mesh_(self.controlpoints_instance_id)
+            # self.viewer_widget.remove_mesh_(self.controlpoints_instance_id)
             self.controlpoints_instance_id = None
             self.controlpoints_mesh_core = None
 
@@ -793,7 +794,7 @@ class Viewer(QWidget):
             )
         faces = np.linspace(0, super_point_cloud.shape[0], num=super_point_cloud.shape[0], endpoint=False, dtype=np.int32)[:, np.newaxis]
         core_id = GlMeshCoreId()
-        self.viewer_widget.add_mesh_(core_id, super_point_cloud, faces)
+        # self.viewer_widget.add_mesh_(core_id, super_point_cloud, faces)
         prefab_id = GlMeshPrefabId(core_id)
         self.viewer_widget.add_mesh_prefab_(
             prefab_id,
@@ -803,8 +804,8 @@ class Viewer(QWidget):
             uniforms={},
         )
         self.pointcloud_instance_id = GlMeshInstanceId(prefab_id)
-        self.viewer_widget.add_mesh_instance_(self.pointcloud_instance_id, np.eye(4))
-        self.point_cloud_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_instance_id).mesh_core
+        # self.viewer_widget.add_mesh_instance_(self.pointcloud_instance_id, np.eye(4))
+        # self.point_cloud_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_instance_id).mesh_core
 
 
 
@@ -839,8 +840,8 @@ class Viewer(QWidget):
             uniforms={},
         )
         self.pointcloud_go_instance_id = GlMeshInstanceId(prefab_id)
-        self.viewer_widget.add_mesh_instance_(self.pointcloud_go_instance_id, np.eye(4))
-        self.pointcloud_go_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_go_instance_id).mesh_core
+        # self.viewer_widget.add_mesh_instance_(self.pointcloud_go_instance_id, np.eye(4))
+        # self.pointcloud_go_mesh_core = self.viewer_widget.get_mesh(self.pointcloud_go_instance_id).mesh_core
 
         self.controlpoints = np.concatenate([np.array(self.leftDeformed), np.array(self.rightDeformed)], axis=1)
        
@@ -870,8 +871,8 @@ class Viewer(QWidget):
             uniforms={"lineColor": np.array([0.0, 1.0, 1.0])},
         )
         self.controlpoints_instance_id = GlMeshInstanceId(prefab_id)
-        self.viewer_widget.add_mesh_instance_(self.controlpoints_instance_id, np.eye(4))
-        self.controlpoints_mesh_core = self.viewer_widget.get_mesh(self.controlpoints_instance_id).mesh_core
+        # self.viewer_widget.add_mesh_instance_(self.controlpoints_instance_id, np.eye(4))
+        # self.controlpoints_mesh_core = self.viewer_widget.get_mesh(self.controlpoints_instance_id).mesh_core
 
 
 
@@ -950,6 +951,11 @@ class Viewer(QWidget):
         for i in range(a.shape[0]):
             path = os.path.join(dir_path, "{0:05d}.obj".format(i))
             igl.write_obj(path, combined_vertices[i], combined_faces)
+            
+            # save stl
+            stl_path = os.path.join(dir_path, "{0:05d}.stl".format(i))
+            mesh = trimesh.Trimesh(vertices=combined_vertices[i], faces=combined_faces, process=False)
+            mesh.export(stl_path)
 
     def automaticReconstruction(self):
         self.computeFeatures()
