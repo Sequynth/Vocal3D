@@ -43,6 +43,8 @@ pip install -U fvcore
 conda install -c bottler nvidiacub
 conda install -c conda-forge igl
 conda install -c conda-forge kornia
+conda install -c conda-forge trimesh
+pip install pycallgraph2
 ```
 
 Install pytorch and pytorch3D. ATTENTION: first make sure that your CUDA version matches with available cudatoolkit versions. Check available cudatoolkit versions with `conda search cudatoolkit` and make sure you are on a matching CUDA installation using `nvcc --version` 
