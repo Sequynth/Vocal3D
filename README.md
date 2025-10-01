@@ -42,19 +42,21 @@ pip install opencv-python-headless matplotlib scikit-learn tqdm geomdl PyQt5 pyq
 pip install -U fvcore
 conda install -c bottler nvidiacub
 conda install -c conda-forge igl
+conda install -c conda-forge kornia
 ```
 
-Install pytorch and pytorch3D
+Install pytorch and pytorch3D. ATTENTION: first make sure that your CUDA version matches with available cudatoolkit versions. Check available cudatoolkit versions with `conda search cudatoolkit` and make sure you are on a matching CUDA installation using `nvcc --version` 
 ```
-conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+conda install pytorch torchvision torchaudio cudatoolkit=XX.Y -c pytorch
 pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
 
 Download and install <a href="https://github.com/anjanadev96/NURBS_Diff.git">NURBS_Diff</a>
 ```
+pip install pybind11
 git clone https://github.com/anjanadev96/NURBS_Diff.git
 cd NURBS_Diff
-python setup.py install
+pip install .
 ```
 
 Download and install our fork of Victor Cornillères <a href="https://github.com/sunreef/PyIGL_viewer">PyIGL Viewer</a>.  
@@ -64,6 +66,7 @@ pip install git+git://github.com/Henningson/PyIGL_viewer.git
 ```
 And finally install our lightweight <a href="https://github.com/Henningson/PybindARAP">C++ ARAP implementation</a>.
 ```
+conda install -c conda-forge eigen
 cd PybindARAP
 python setup.py install
 ```
